@@ -1,5 +1,5 @@
 // Quick looks while building:  node dev/shots.mjs [out dir]
-// Opens the game at phone and desktop sizes, plays a few moves, and saves pictures.
+// Opens each game at phone and desktop sizes, part way through, and saves pictures.
 import { createRequire } from 'node:module';
 import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -22,41 +22,26 @@ const server = createServer(async (req, res) => {
 }).listen(0);
 const base = `http://localhost:${server.address().port}/`;
 const browser = await pw.chromium.launch();
+const only = process.argv[3];
 
-for (const [name, vp, scheme] of [['phone', { width: 390, height: 844 }, 'light'], ['desk', { width: 1280, height: 800 }, 'light'], ['phone-dark', { width: 390, height: 844 }, 'dark'], ['land', { width: 844, height: 390 }, 'light']]) {
+for (const [name, vp, scheme] of [['phone', { width: 390, height: 844 }, 'light'], ['desk', { width: 1280, height: 800 }, 'light'], ['dark', { width: 390, height: 844 }, 'dark']]) {
+  if (only && !only.split(',').includes(name)) continue;
   const ctx = await browser.newContext({ viewport: vp, deviceScaleFactor: 2, hasTouch: true, colorScheme: scheme, serviceWorkers: 'block' });
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.addInitScript(() => { let a = 7; Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; });
   await page.goto(base);
-  await page.waitForFunction(() => window.patience?.state && document.querySelector('.table:not(.still)'));
-  await page.waitForTimeout(1600);
-  await page.screenshot({ path: join(out, `${name}-0.png`) });
-  // Draw a few times.
-  for (let i = 0; i < 3; i++) { await page.click('.spot[data-pile="stock"]', { force: true }); await page.waitForTimeout(300); }
-  await page.screenshot({ path: join(out, `${name}-1.png`) });
-  // Part way through a draw-three game.
-  await page.evaluate(playInto, { n: 11705, draw: 3, steps: 45 });
-  await page.waitForTimeout(900);
-  await page.screenshot({ path: join(out, `${name}-2.png`) });
-  await page.click('#b-hint');
-  await page.waitForTimeout(700);
-  await page.screenshot({ path: join(out, `${name}-hint.png`) });
-  if (name === 'phone') {
-    await page.click('#b-menu'); await page.waitForTimeout(400);
-    await page.screenshot({ path: join(out, `${name}-menu.png`) });
-    await page.click('#sheet-menu .close'); await page.click('#b-new'); await page.waitForTimeout(400);
-    await page.screenshot({ path: join(out, `${name}-new.png`) });
-    await page.click('#sheet-new [data-close].plain');
-    // Nearly won: play all but the last few moves, then finish by hand.
-    await page.evaluate(playInto, { n: 11705, draw: 3, steps: 9999 });
-    await page.waitForTimeout(5000);
-    await page.screenshot({ path: join(out, `${name}-won.png`) });
-    await page.mouse.click(200, 400);
-    await page.waitForTimeout(500);
-    await page.screenshot({ path: join(out, `${name}-won2.png`) });
+  await page.waitForFunction(() => window.patience?.state && !window.patience.busy, null, { timeout: 20000 });
+  for (const [v, n, steps] of [['k3', 11705, 45], ['fc', 617, 40], ['s2', 5, 60], ['s4', 2, 0]]) {
+    await page.evaluate(([v, n]) => window.patience.newGame(v, n), [v, n]);
+    await page.waitForTimeout(1800);
+    await page.screenshot({ path: join(out, `${name}-${v}-deal.png`) });
+    if (steps) {
+      await page.evaluate(playInto, { v, n, steps, ms: 200000 });
+      await page.waitForTimeout(900);
+      await page.screenshot({ path: join(out, `${name}-${v}-mid.png`) });
+    }
   }
   console.log(name, errors.length ? errors : 'ok');
   await ctx.close();

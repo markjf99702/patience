@@ -17,7 +17,7 @@
 //   k 2: talon card j to the foundations    k 3: talon card j to column b
 //   k 4: the top card of suit s back down from the foundations to column b
 
-import { suitOf, rankOf, isRed, stacks, fits, safeUp } from './cards.js';
+import { suitOf, rankOf, isRed, stacks, fits, safeUp } from '../cards.js';
 
 const top = a => a[a.length - 1];
 
@@ -38,7 +38,15 @@ export class Search {
     this.rootAutos = this.autos();
     if (this.done()) { this.finish(); return; }
     this.seen.add(this.key());
-    this.stack.push({ moves: this.moves(), i: 0, via: null, autos: null });
+    this.rootMoves = this.moves();
+    this.stack.push({ moves: this.rootMoves, i: 0, via: null, autos: null });
+  }
+
+  // The move to suggest: the first of the winning line, or, if there wasn't time to find one,
+  // the move that looked best to begin with.
+  firstMove() {
+    if (this.path) return this.path[0] ?? null;
+    return this.rootAutos[0] ? plain(this.rootAutos[0]) : this.rootMoves?.[0] ? plain(this.rootMoves[0]) : null;
   }
 
   // Look at up to `budget` more positions. Returns the result, or null if there's more to look at.

@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Patience</title>
-  <meta name="description" content="Klondike solitaire with no ads and no account. Draw one or three, tap or drag, undo as much as you like, and only get deals that can be won. Works offline.">
+  <meta name="description" content="Klondike, FreeCell and Spider solitaire with no ads and no account. Tap or drag, undo as much as you like, and only get deals that can be won. Works offline.">
   <meta property="og:title" content="Patience">
-  <meta property="og:description" content="Klondike solitaire with no ads. Every deal can be won, and it works offline.">
+  <meta property="og:description" content="Klondike, FreeCell and Spider with no ads. Every deal can be won, and it works offline.">
   <meta property="og:image" content="https://junkdrawer.works/patience/og.png">
   <meta property="og:url" content="https://junkdrawer.works/patience/">
   <meta name="twitter:card" content="summary_large_image">
@@ -46,9 +46,22 @@
     <section class="panel" role="dialog" aria-modal="true" aria-labelledby="new-title">
       <h2 id="new-title">New game</h2>
       <p class="note" id="new-note" hidden>The game you're in counts as a loss.</p>
-      <div class="choices">
-        <button type="button" class="choice" data-draw="1"><b>Draw one</b><span>Turn over one card at a time. The gentler game.</span></button>
-        <button type="button" class="choice" data-draw="3"><b>Draw three</b><span>Turn over three, and only the top one is yours to play.</span></button>
+      <div class="games">
+        <div class="pick">
+          <h3>Klondike</h3>
+          <p>The one that came with Windows. Turn cards over from the deck and build four foundations, ace to king.</p>
+          <div class="row"><button type="button" class="choice" data-v="k1">Draw one</button><button type="button" class="choice" data-v="k3">Draw three</button></div>
+        </div>
+        <div class="pick">
+          <h3>FreeCell</h3>
+          <p>Every card face up from the start, with four free cells to hold a card each. Deals numbered the way Windows numbered them.</p>
+          <div class="row"><button type="button" class="choice" data-v="fc">Play FreeCell</button></div>
+        </div>
+        <div class="pick">
+          <h3>Spider</h3>
+          <p>Two decks and ten columns. Build a run from king to ace in one suit and it clears away. Clear eight to win.</p>
+          <div class="row"><button type="button" class="choice" data-v="s1">One suit</button><button type="button" class="choice" data-v="s2">Two suits</button><button type="button" class="choice" data-v="s4">Four suits</button></div>
+        </div>
       </div>
       <button type="button" class="plain" id="b-restart">Start this deal again</button>
       <button type="button" class="plain" data-close>Keep playing</button>
@@ -63,29 +76,55 @@
         <button type="button" class="close" data-close aria-label="Close">×</button>
       </div>
 
-      <h3>Your record</h3>
-      <div class="seg" role="group" aria-label="Which game">
-        <button type="button" data-stats="1" aria-pressed="true">Draw one</button>
-        <button type="button" data-stats="3" aria-pressed="false">Draw three</button>
-      </div>
+      <h3><label for="stats-for">Your record</label></h3>
+      <select id="stats-for" class="select">
+        <option value="k1">Klondike, draw one</option>
+        <option value="k3">Klondike, draw three</option>
+        <option value="fc">FreeCell</option>
+        <option value="s1">Spider, one suit</option>
+        <option value="s2">Spider, two suits</option>
+        <option value="s4">Spider, four suits</option>
+      </select>
       <dl class="stats" id="stats"></dl>
 
       <h3>Settings</h3>
       <label class="toggle"><input type="checkbox" id="o-winnable"><span><b>Only deal games that can be won</b> Each deal is played out first, so there's always a way through.</span></label>
-      <label class="toggle"><input type="checkbox" id="o-auto"><span><b>Send cards up by themselves</b> Once nothing on the table could still need a card, it goes to its foundation.</span></label>
+      <label class="toggle"><input type="checkbox" id="o-auto"><span><b>Send cards up by themselves</b> Once nothing on the table could still need a card, it goes to its foundation. In Klondike and FreeCell; Spider always clears a finished run by itself.</span></label>
       <label class="toggle"><input type="checkbox" id="o-clock"><span><b>Show time and moves</b></span></label>
       <label class="toggle"><input type="checkbox" id="o-four"><span><b>Four-colour suits</b> Clubs green and diamonds blue, so all four suits look different.</span></label>
-      <label class="toggle"><input type="checkbox" id="o-left"><span><b>Stock on the left</b> The deck sits on the right, under your thumb, unless you'd rather have it here.</span></label>
+      <label class="toggle"><input type="checkbox" id="o-left"><span><b>Stock on the left</b> In Klondike and Spider the deck sits on the right, under your thumb, unless you'd rather have it here.</span></label>
 
       <h3>How to play</h3>
-      <ul class="howto">
-        <li>Build the four foundations at the top from ace to king, one suit each.</li>
-        <li>In the seven columns, put cards in descending order with colours alternating, a red 6 on a black 7. You can move a run of cards together.</li>
-        <li>Only a king, or a run starting with one, can go in an empty column.</li>
-        <li>Tap the deck to turn cards over. When it runs out, tap the empty space to turn the pile back over. There's no limit on passes.</li>
-        <li>Tap a card to send it to the best place, or drag it where you want it.</li>
-        <li>On a keyboard: <kbd>Space</kbd> draws, <kbd>Z</kbd> undoes, <kbd>H</kbd> gives a hint and <kbd>N</kbd> starts a new game.</li>
-      </ul>
+      <div class="howto">
+        <details data-game="klondike">
+          <summary>Klondike</summary>
+          <ul>
+            <li>Build the four foundations at the top from ace to king, one suit each.</li>
+            <li>In the seven columns, put cards in descending order with colours alternating, a red 6 on a black 7. You can move a run of cards together.</li>
+            <li>Only a king, or a run starting with one, can go in an empty column.</li>
+            <li>Tap the deck to turn cards over. When it runs out, tap the empty space to turn the pile back over. There's no limit on passes.</li>
+          </ul>
+        </details>
+        <details data-game="freecell">
+          <summary>FreeCell</summary>
+          <ul>
+            <li>Build the four foundations on the right from ace to king, one suit each.</li>
+            <li>In the eight columns, put cards in descending order with colours alternating. Any card can go in an empty column.</li>
+            <li>Each of the four free cells on the left holds one card while you work.</li>
+            <li>A run moves together if there's room to move it a card at a time: one card for each empty free cell, plus one, doubled for each empty column.</li>
+          </ul>
+        </details>
+        <details data-game="spider">
+          <summary>Spider</summary>
+          <ul>
+            <li>Build down in the ten columns, a 6 on any 7. Only a run of one suit moves together.</li>
+            <li>A run from king to ace in one suit clears away by itself. Clear all eight to win.</li>
+            <li>Tap the deck to deal a row, a card onto every column. Every column needs at least one card first.</li>
+            <li>Any card or run of one suit can go in an empty column.</li>
+          </ul>
+        </details>
+        <p class="small">In every game, tap a card to send it to the best place, or drag it where you want it. On a keyboard: <kbd>Space</kbd> uses the deck, <kbd>Z</kbd> undoes, <kbd>H</kbd> gives a hint and <kbd>N</kbd> starts a new game.</p>
+      </div>
       <p class="small">No ads, no account. Your game and your record stay on this device, and once it has loaded it works with no signal. Add it to your home screen to keep it like an app.</p>
 
       <footer class="jd-foot">
@@ -103,6 +142,7 @@
       <p id="won-line"></p>
       <dl class="stats" id="won-stats"></dl>
       <button type="button" class="primary" id="b-again">Deal again</button>
+      <button type="button" class="plain" id="b-pick">Choose a game</button>
     </section>
   </div>
 

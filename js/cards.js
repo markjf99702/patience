@@ -1,12 +1,14 @@
 // A card is a number from 0 to 51: suit * 13 + (rank - 1).
 // Suits in order: spades, hearts, clubs, diamonds, so the red ones are the odd suits.
+// Spider plays with two decks, so its cards also carry which copy they are: copy * 52 + the card,
+// which keeps every card on the table distinct while it plays the same as any other of its kind.
 
 export const SUITS = ['s', 'h', 'c', 'd'];
 export const SUIT_NAMES = ['spades', 'hearts', 'clubs', 'diamonds'];
 export const RANK_LABELS = ['', 'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 export const RANK_NAMES = ['', 'ace', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'jack', 'queen', 'king'];
 
-export const suitOf = c => (c / 13) | 0;
+export const suitOf = c => ((c % 52) / 13) | 0;
 export const rankOf = c => (c % 13) + 1;
 export const isRed = c => (suitOf(c) & 1) === 1;
 export const card = (suit, rank) => suit * 13 + rank - 1;

@@ -39,7 +39,7 @@ async function open(viewport, deviceScaleFactor, scheme = 'light') {
   await page.addInitScript(seed => {
     let a = seed; // mulberry32
     Math.random = () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-    localStorage.setItem('patience.v1', JSON.stringify({ stats: { 1: { played: 23, won: 17, streak: 4, best: 6, fastest: 171000 }, 3: { played: 9, won: 5, streak: 1, best: 2, fastest: 263000 } } }));
+    localStorage.setItem('patience.v1', JSON.stringify({ stats: { k1: { played: 23, won: 17, streak: 4, best: 6, fastest: 171000 }, k3: { played: 9, won: 5, streak: 1, best: 2, fastest: 263000 } } }));
   }, SEED);
   await page.goto(base);
   await page.evaluate(() => document.fonts.ready);
@@ -51,24 +51,44 @@ const settle = page => page.waitForTimeout(700);
 // Phone screenshots for the README.
 {
   const page = await open({ width: 390, height: 844 }, 2);
-  await page.evaluate(playInto, { n: 52817, draw: 1, steps: 34, ms: 151000 });
+  const shot = async name => save(await page.screenshot(), join(root, `docs/${name}.png`));
+  const fresh = async (v, n) => { await page.evaluate(([v, n]) => window.patience.newGame(v, n), [v, n]); await page.waitForTimeout(2200); };
+
+  // Klondike part way, with a hint lit up.
+  await page.evaluate(playInto, { v: 'k1', n: 52817, steps: 34, ms: 151000 });
   await settle(page);
   await page.click('.spot[data-pile="stock"]', { force: true });
   await page.waitForTimeout(500);
+  await page.waitForFunction(() => !window.patience.busy);
   await page.click('#b-hint');
   await page.waitForSelector('.hint');
   await page.waitForTimeout(400);
-  await save(await page.screenshot(), join(root, 'docs/phone-play.png'));
+  await shot('phone-klondike');
 
-  await page.click('#b-menu');
+  // FreeCell game 617 part way.
+  await fresh('fc', 617);
+  await page.evaluate(playInto, { v: 'fc', n: 617, steps: 40, ms: 200000 });
+  await settle(page);
+  await shot('phone-freecell');
+
+  // Spider with two suits part way.
+  await fresh('s2', 5);
+  await page.evaluate(playInto, { v: 's2', n: 5, steps: 70, ms: 420000 });
+  await settle(page);
+  await shot('phone-spider');
+
+  // Choosing a game.
+  await page.click('#b-new');
   await page.waitForTimeout(400);
-  await save(await page.screenshot(), join(root, 'docs/phone-menu.png'));
-  await page.click('#sheet-menu .close');
+  await shot('phone-new');
+  await page.click('#sheet-new [data-close].plain');
 
-  await page.evaluate(playInto, { n: 52817, draw: 1, steps: 9999, ms: 281000 });
+  // Winning.
+  await fresh('k1', 52817);
+  await page.evaluate(playInto, { v: 'k1', n: 52817, steps: 9999, ms: 281000 });
   await page.waitForSelector('#won:not([hidden])', { timeout: 20000 });
-  await page.waitForTimeout(3800);
-  await save(await page.screenshot(), join(root, 'docs/phone-won.png'));
+  await page.waitForTimeout(4500);
+  await shot('phone-won');
   await page.context().close();
 }
 
@@ -76,9 +96,9 @@ const settle = page => page.waitForTimeout(700);
 {
   const page = await open({ width: 620, height: 630 }, 1);
   await page.addStyleTag({ content: '.top, .bar { visibility: hidden } .won .panel { display: none !important }' });
-  await page.evaluate(playInto, { n: 52817, draw: 1, steps: 9999 });
+  await page.evaluate(playInto, { v: 'k1', n: 52817, steps: 9999 });
   await page.waitForSelector('#won:not([hidden])', { timeout: 20000 });
-  await page.waitForTimeout(5200);
+  await page.waitForTimeout(5900);
   const shot = (await page.screenshot()).toString('base64');
   await page.context().close();
 
@@ -91,10 +111,10 @@ const settle = page => page.waitForTimeout(700);
     body { margin: 0; width: 1200px; height: 630px; display: grid; grid-template-columns: 580px 620px; background: radial-gradient(120% 100% at 30% 30%, #2f7656, #1c523c); color: #f4f0e3; overflow: hidden; }
     .words { padding: 0 20px 0 72px; display: flex; flex-direction: column; justify-content: center; }
     h1 { margin: 0; font: 600 104px/1 Fraunces; font-variation-settings: 'opsz' 144; letter-spacing: -0.01em; }
-    p { margin: 26px 0 0; font: 500 33px/1.32 Figtree; color: rgba(244, 240, 227, 0.86); max-width: 460px; }
+    p { margin: 26px 0 0; font: 500 31px/1.32 Figtree; color: rgba(244, 240, 227, 0.86); max-width: 470px; }
     img { width: 620px; height: 630px; display: block; -webkit-mask-image: linear-gradient(90deg, transparent, #000 60px); }
   </style>
-  <div class="words"><h1>Patience</h1><p>Solitaire with no ads. Every deal can be won, and it works offline.</p></div>
+  <div class="words"><h1>Patience</h1><p>Klondike, FreeCell and Spider with no ads. Every deal can be won, and it works offline.</p></div>
   <img src="data:image/png;base64,${shot}">`);
   await card.evaluate(() => document.fonts.ready);
   await save(await card.screenshot(), join(root, 'og.png'));

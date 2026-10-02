@@ -43,10 +43,10 @@ await settled();
 let s = await state();
 assert.equal(await page.locator('.card').count(), 52);
 assert.equal(s.stock.length, 24);
-assert.match(await page.textContent('#status'), /Draw one · Deal [\d,]+/);
+assert.match(await page.textContent('#status'), /Klondike, draw one · Deal [\d,]+/);
 
 // A known deal from here on.
-await page.evaluate(() => window.patience.newGame(1, 11705));
+await page.evaluate(() => window.patience.newGame('k1', 11705));
 await page.waitForTimeout(1200);
 await settled();
 
@@ -67,7 +67,7 @@ assert.equal(s.stock.length, 24);
 async function findMove() {
   for (let i = 0; i < 40; i++) {
     const m = await page.evaluate(async () => {
-      const k = await import('./js/klondike.js');
+      const k = await import('./js/games/klondike.js');
       const s = window.patience.state;
       for (const id of ['waste', ...k.TABLEAU]) {
         const v = k.visible(s, id);
@@ -101,7 +101,7 @@ assert.ok(after === m.to || after[0] === 'f', `tapped card went to ${after}, exp
 
 // Drag a card onto a column it fits.
 const drag = await page.evaluate(async () => {
-  const k = await import('./js/klondike.js');
+  const k = await import('./js/games/klondike.js');
   const s = window.patience.state;
   for (const id of ['waste', ...k.TABLEAU]) {
     const v = k.visible(s, id);
@@ -164,12 +164,12 @@ assert.equal(await page.evaluate(() => document.documentElement.hasAttribute('da
 // New game, drawing three.
 await page.click('#b-new');
 assert.equal(await page.isVisible('#new-note'), true, 'leaving a game part way is a loss');
-await page.click('[data-draw="3"]');
+await page.click('[data-v="k3"]');
 await page.waitForTimeout(1500);
 await settled();
 s = await state();
 assert.equal(s.draw, 3);
-assert.match(await page.textContent('#status'), /Draw three/);
+assert.match(await page.textContent('#status'), /Klondike, draw three/);
 await page.waitForTimeout(800);
 assert.equal(await page.evaluate(() => [...document.querySelectorAll('.card, .card .flip')].filter(el => el.style.transitionDelay).length), 0,
   'no card is left with a dealing delay');
@@ -179,13 +179,13 @@ s = await state();
 assert.ok(s.waste.length === 3 || s.found.some(f => f.length), 'three cards turned over');
 
 // Win a game: the record counts it.
-const before = await page.evaluate(() => ({ ...window.patience.stats[3] }));
-await page.evaluate(playInto, { n: 11705, draw: 3, steps: 9999 });
+const before = await page.evaluate(() => ({ ...window.patience.stats.k3 }));
+await page.evaluate(playInto, { v: 'k3', n: 11705, steps: 9999 });
 await page.waitForSelector('#won:not([hidden])', { timeout: 20000 });
 await page.mouse.click(30, 300);
 await page.waitForSelector('#won .panel:not([hidden])');
-assert.match(await page.textContent('#won-line'), /Deal 11,705, drawing three/);
-const afterWin = await page.evaluate(() => window.patience.stats[3]);
+assert.match(await page.textContent('#won-line'), /Klondike, draw three, deal 11,705/);
+const afterWin = await page.evaluate(() => window.patience.stats.k3);
 assert.equal(afterWin.won, before.won + 1);
 assert.equal(afterWin.streak, 1);
 await page.click('#b-again');
@@ -196,6 +196,95 @@ s = await state();
 assert.equal(s.moves, 0);
 assert.equal(await page.locator('.card[style*="visibility: hidden"]').count(), 0, 'every card is back on the table');
 
+// FreeCell: every card face up, and a card with nowhere else to go goes to a free cell.
+await page.click('#b-new');
+await page.click('[data-v="fc"]');
+await page.waitForTimeout(2000);
+await settled();
+s = await state();
+assert.equal(s.v, 'fc');
+assert.match(await page.textContent('#status'), /FreeCell · Deal [\d,]+/);
+assert.equal(await page.locator('.card').count(), 52);
+assert.equal(await page.locator('.card.down').count(), 0, 'all face up');
+await page.evaluate(() => window.patience.newGame('fc', 617));
+await page.waitForTimeout(2000);
+await settled();
+// In deal 617 the 4 of hearts on top of the fourth column has nowhere to go but a free cell.
+s = await state();
+const four = s.tab[3][s.tab[3].length - 1];
+await page.click(`.card[data-c="${four}"]`, { position: { x: 12, y: 10 } });
+await step();
+s = await state();
+assert.equal(s.cells.filter(c => c !== null).length, 1, 'the card went to a free cell');
+await page.click('#b-undo');
+await step();
+assert.equal((await state()).cells.filter(c => c !== null).length, 0);
+await page.click('#b-hint');
+await page.waitForSelector('.hint', { timeout: 15000 });
+await page.evaluate(playInto, { v: 'fc', n: 617, steps: 9999 });
+await page.waitForSelector('#won:not([hidden])', { timeout: 30000 });
+await page.mouse.click(30, 300);
+await page.waitForSelector('#won .panel:not([hidden])');
+assert.match(await page.textContent('#won-line'), /FreeCell, deal 617/);
+assert.equal(await page.evaluate(() => window.patience.stats.fc.won), 1);
+
+// Spider: two decks; the deck deals a row onto every column, but not while one is empty.
+await page.click('#b-pick');
+await page.waitForSelector('#sheet-new:not([hidden])');
+await page.click('[data-v="s1"]');
+await page.waitForTimeout(2200);
+await settled();
+s = await state();
+assert.equal(s.v, 's1');
+assert.equal(await page.locator('.card').count(), 104);
+assert.equal(s.stock.length, 50);
+await page.click('.spot[data-pile="stock"]', { force: true });
+await page.waitForTimeout(900);
+await settled();
+s = await state();
+assert.equal(s.stock.length, 40, 'a row was dealt');
+await page.evaluate(() => {
+  const s = structuredClone(window.patience.state);
+  s.tab[9] = { down: [], up: [] };
+  window.patience.load(s);
+});
+await page.click('.spot[data-pile="stock"]', { force: true });
+await page.waitForSelector('#toast:not([hidden])');
+assert.match(await page.textContent('#toast'), /empty column/);
+assert.equal((await state()).stock.length, 40, 'no row while a column is empty');
+
+// Win a Spider game: the cleared runs bounce off.
+await page.evaluate(() => window.patience.newGame('s1', 3));
+await page.waitForTimeout(2200);
+await settled();
+await page.evaluate(playInto, { v: 's1', n: 3, steps: 99999 });
+await page.waitForSelector('#won:not([hidden])', { timeout: 30000 });
+assert.equal(await page.evaluate(() => window.patience.stats.s1.won), 1);
+await page.mouse.click(30, 300);
+await page.click('#b-again');
+await page.waitForTimeout(2200);
+await settled();
+assert.equal(await page.locator('.card[style*="visibility: hidden"]').count(), 0, 'every card is back on the table');
+
+// A Spider game is still there after a reload, and each game's record has its own place in the menu.
+await page.evaluate(() => window.patience.newGame('s2', 5));
+await page.waitForTimeout(2200);
+await settled();
+await page.click('.spot[data-pile="stock"]', { force: true });
+await page.waitForTimeout(900);
+await settled();
+s = await state();
+await page.reload();
+await settled();
+const sp = await state();
+assert.equal(sp.v, 's2');
+assert.deepEqual(sp.tab, s.tab);
+await page.click('#b-menu');
+assert.equal(await page.inputValue('#stats-for'), 's2');
+await page.selectOption('#stats-for', 'fc');
+assert.match(await page.textContent('#stats'), /Won\s*1/);
+await page.click('#sheet-menu .close');
+
 // Fits a phone: nothing scrolls sideways.
 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the page scrolls sideways on a phone');
 
@@ -204,10 +293,38 @@ await page.waitForFunction(() => navigator.serviceWorker?.controller, null, { ti
 await ctx.setOffline(true);
 await page.reload();
 await settled();
-assert.equal(await page.locator('.card').count(), 52, 'the game did not load offline');
+assert.equal(await page.locator('.card').count(), 104, 'the Spider game did not load offline');
 await ctx.setOffline(false);
 
 assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems while playing');
+// A phone with the first version's game and record on it carries both over.
+{
+  const old = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  const p2 = await old.newPage();
+  await p2.addInitScript(() => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    // A Klondike game part way, drawing three, saved the way the first version saved it (no `v`).
+    const tab = Array.from({ length: 7 }, (_, i) => ({ down: Array.from({ length: i }, (_, k) => 12 + i * 4 + k), up: [i] }));
+    localStorage.setItem('patience.v1', JSON.stringify({
+      settings: { draw: 3, winnable: true, auto: true, clock: true, four: false, left: false },
+      stats: { 1: { played: 9, won: 6, streak: 2, best: 4, fastest: 200000 }, 3: { played: 4, won: 1, streak: 0, best: 1, fastest: 400000 } },
+      next: { 1: 1234, 3: 5678 },
+      game: { state: { deal: 777, draw: 3, stock: [7, 8, 9], waste: [10, 11], fan: 2, found: [[], [], [], []], tab, moves: 12 }, history: [], elapsed: 60000, counted: true },
+    }));
+  });
+  await p2.goto(base);
+  await p2.waitForFunction(() => window.patience?.state && !window.patience.busy, null, { timeout: 15000 });
+  const kept = await p2.evaluate(() => ({ s: window.patience.state, stats: window.patience.stats, v: window.patience.settings.variant }));
+  assert.equal(kept.s.v, 'k3');
+  assert.equal(kept.s.deal, 777);
+  assert.equal(kept.v, 'k3');
+  assert.equal(kept.stats.k1.won, 6);
+  assert.equal(kept.stats.k3.played, 4);
+  assert.match(await p2.textContent('#status'), /Klondike, draw three · Deal 777/);
+  await old.close();
+}
+
 await browser.close();
 server.close();
 console.log('all good');

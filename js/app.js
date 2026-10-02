@@ -1,20 +1,28 @@
 // Patience: the game, the buttons, the record and the settings.
 
-import { deal, move, draw, bestTarget, autoStep, won, finishable, finishStep } from './klondike.js';
+import { VARIANTS, gameOf, label } from './games/index.js';
 import { Table } from './table.js';
-import { Dealer, hintFor, outOfMoves, randomDeal } from './deals.js';
+import { Dealer, hintFor } from './deals.js';
 import { cascade } from './win.js';
 import { suitSprite } from './suits.js';
 
 const KEY = 'patience.v1';
 const $ = id => document.getElementById(id);
-const DEFAULTS = { draw: 1, winnable: true, auto: true, clock: true, four: false, left: false };
+const DEFAULTS = { variant: 'k1', winnable: true, auto: true, clock: true, four: false, left: false };
 const blank = () => ({ played: 0, won: 0, streak: 0, best: 0, fastest: 0 });
-const DEAL_TIME = 28 * 26 + 420; // how long dealing the columns takes, in ms
 
 const saved = read();
+// The first version only played Klondike, and kept the draw count where the way of playing now goes.
+if (saved.settings && !saved.settings.variant && saved.settings.draw) saved.settings.variant = 'k' + saved.settings.draw;
+if (saved.stats?.[1] || saved.stats?.[3]) { saved.stats.k1 ??= saved.stats[1]; saved.stats.k3 ??= saved.stats[3]; }
+if (saved.next?.[1] || saved.next?.[3]) saved.next = { k1: saved.next[1], k3: saved.next[3] };
+const upgrade = s => (s && !s.v && s.draw ? { ...s, v: 'k' + s.draw } : s);
+if (saved.game) { saved.game.state = upgrade(saved.game.state); saved.game.history = (saved.game.history || []).map(upgrade); }
+
 const settings = { ...DEFAULTS, ...saved.settings };
-const stats = { 1: { ...blank(), ...saved.stats?.[1] }, 3: { ...blank(), ...saved.stats?.[3] } };
+delete settings.draw;
+if (!VARIANTS[settings.variant]) settings.variant = 'k1';
+const stats = Object.fromEntries(Object.keys(VARIANTS).map(v => [v, { ...blank(), ...saved.stats?.[v] }]));
 
 let game = null;      // where the cards are now
 let history = [];     // where they were before each move, for Undo
@@ -25,15 +33,21 @@ let chain = 0;        // the timer for the next card going up by itself
 let thinking = false; // the Hint button is searching
 let stopBounce = null;
 
+const G = () => gameOf(game);
+
 document.body.prepend(suitSprite());
 const table = new Table($('table'), {
-  draw: () => act(draw(game)),
+  stock: () => {
+    if (act(G().stock(game))) return;
+    const note = G().stockNote(game);
+    if (note) toast(note);
+  },
   tap: (pile, n) => {
     if (pile[0] === 'f') return;
-    const to = bestTarget(game, pile, n);
-    if (!to || !act(move(game, pile, n, to))) table.shake(pile, n);
+    const to = G().tapTarget(game, pile, n);
+    if (!to || !act(G().move(game, pile, n, to))) table.shake(pile, n);
   },
-  move: (pile, n, to) => { if (!act(move(game, pile, n, to))) table.render(game); },
+  move: (pile, n, to) => { if (!act(G().move(game, pile, n, to))) table.render(game); },
   touched: () => hideToast(),
 });
 const dealer = new Dealer(saved.next || {}, () => write());
@@ -46,7 +60,7 @@ function act(next) {
   cancelChain();
   table.clearHint();
   history.push(game);
-  if (!counted) { counted = true; stats[next.draw].played++; }
+  if (!counted) { counted = true; stats[next.v].played++; }
   startClock();
   set(next);
   return true;
@@ -62,38 +76,40 @@ function set(next) {
 
 // After any move: finished? Ready to finish itself? Any cards to send up?
 function after() {
-  if (won(game)) { victory(); return; }
-  if (finishable(game)) { finish(); return; }
+  const g = G();
+  if (g.won(game)) { chain = setTimeout(victory, 700); return; }
+  if (g.finishable(game)) { finish(); return; }
   if (settings.auto) {
-    const step = autoStep(game);
+    const step = g.autoStep(game);
     if (step) {
       chain = setTimeout(() => {
         chain = 0;
-        const next = move(game, step.from, step.n, step.to);
+        const next = g.move(game, step.from, step.n, step.to);
         next.moves = game.moves; // these aren't the player's moves
         set(next);
       }, 140);
       return;
     }
   }
-  if (counted && outOfMoves(game)) {
+  if (counted && g.outOfMoves(game)) {
     toast('There are no moves left.', [['Undo', undo], ['New game', openNew]]);
   }
 }
 
 function cancelChain() { clearTimeout(chain); chain = 0; }
 
-// Every card is face up: put them all away, lowest first.
+// Every card is in order: put them all away, lowest first.
 function finish() {
   table.locked = true;
+  const g = G();
   const step = () => {
-    const s = finishStep(game);
+    const s = g.finishStep(game);
     if (!s) { table.locked = false; return; }
-    const next = move(game, s.from, s.n, s.to);
+    const next = g.move(game, s.from, s.n, s.to);
     next.moves = game.moves;
     game = next;
     table.render(game);
-    if (won(game)) { chain = setTimeout(victory, 320); return; }
+    if (g.won(game)) { chain = setTimeout(victory, 320); return; }
     chain = setTimeout(step, 80);
   };
   chain = setTimeout(step, 260);
@@ -109,25 +125,18 @@ function undo() {
   write();
 }
 
-async function newGame(drawCount, number) {
+async function newGame(v, number) {
   closeSheets();
   hideToast();
   cancelChain();
-  if (game && counted && !won(game)) stats[game.draw].streak = 0; // leaving a game part way counts as a loss
-  settings.draw = drawCount;
+  if (game && counted && !G().won(game)) stats[game.v].streak = 0; // leaving a game part way counts as a loss
+  settings.variant = v;
   table.locked = true;
+  const g = VARIANTS[v].game;
   const slow = setTimeout(() => { $('status').textContent = 'Shuffling for a deal that can be won…'; }, 250);
-  const n = number ?? (settings.winnable ? await dealer.take(drawCount) : randomDeal());
+  const n = number ?? (settings.winnable ? await dealer.take(v) : g.randomDeal());
   clearTimeout(slow);
-  game = deal(n, drawCount);
-  history = [];
-  elapsed = 0;
-  since = 0;
-  counted = false;
-  table.render(game, { deal: true });
-  showInfo();
-  write();
-  setTimeout(() => { table.locked = false; after(); }, DEAL_TIME);
+  start(g.deal(n, v));
 }
 
 function restart() {
@@ -135,19 +144,25 @@ function restart() {
   if (!game || !game.moves) return;
   cancelChain();
   hideToast();
-  game = deal(game.deal, game.draw);
+  table.locked = true;
+  start(G().deal(game.deal, game.v), true);
+}
+
+function start(state, again) {
+  game = state;
   history = [];
   elapsed = 0;
   since = 0;
-  table.locked = true;
+  if (!again) counted = false;
   table.render(game, { deal: true });
   showInfo();
   write();
-  setTimeout(() => { table.locked = false; after(); }, DEAL_TIME);
+  setTimeout(() => { table.locked = false; after(); }, table.dealDuration + 150);
 }
 
 async function hint() {
   if (thinking || table.locked || !game) return;
+  if (chain) { setTimeout(hint, 120); return; } // let cards going up by themselves land first
   const at = game;
   thinking = true;
   $('b-hint').classList.add('busy');
@@ -163,9 +178,10 @@ async function hint() {
 // ---- winning ----
 
 function victory() {
+  chain = 0;
   table.locked = true;
   stopClock();
-  const st = stats[game.draw];
+  const st = stats[game.v];
   if (!counted) st.played++;
   st.won++;
   st.streak++;
@@ -174,7 +190,7 @@ function victory() {
   counted = false;
   write();
 
-  $('won-line').textContent = `Deal ${game.deal.toLocaleString('en-US')}, ${game.draw === 1 ? 'drawing one' : 'drawing three'}, in ${clock(elapsed)} and ${plural(game.moves, 'move')}.`;
+  $('won-line').textContent = `${label(game.v)}, deal ${game.deal.toLocaleString('en-US')}, in ${clock(elapsed)} and ${plural(game.moves, 'move')}.`;
   $('won-stats').innerHTML = tiles([
     ['Won', `${st.won} of ${st.played}`],
     ['Streak', st.streak],
@@ -188,23 +204,23 @@ function victory() {
     showPanel();
   } else {
     table.unbury();
-    const order = [];
-    for (let r = 13; r >= 1; r--) for (const f of game.found) order.push(f[r - 1]);
-    stopBounce = cascade($('bounce'), order, c => table.rectOf(c), c => table.hide(c, true));
+    stopBounce = cascade($('bounce'), G().bounceOrder(game), c => table.rectOf(c), c => table.hide(c, true));
     const timer = setTimeout(showPanel, 3500);
     overlay.addEventListener('pointerdown', () => { clearTimeout(timer); showPanel(); }, { once: true });
   }
 }
 
-$('b-again').addEventListener('click', () => {
+function closeWon() {
   stopBounce?.();
   stopBounce = null;
   const canvas = $('bounce');
   canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
   $('won').hidden = true;
-  for (let c = 0; c < 52; c++) table.hide(c, false);
-  newGame(game.draw);
-});
+  table.showAllCards();
+  table.locked = false;
+}
+$('b-again').addEventListener('click', () => { closeWon(); newGame(game.v); });
+$('b-pick').addEventListener('click', () => { closeWon(); openNew(); });
 
 // ---- the clock, the counts and the record ----
 
@@ -220,16 +236,17 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 function showInfo() {
   if (!game) return;
-  $('status').textContent = `${game.draw === 1 ? 'Draw one' : 'Draw three'} · Deal ${game.deal.toLocaleString('en-US')}`;
+  $('status').textContent = `${label(game.v)} · Deal ${game.deal.toLocaleString('en-US')}`;
   $('moves').textContent = plural(game.moves, 'move');
   $('time').textContent = clock(played());
   $('b-undo').disabled = !history.length;
+  document.documentElement.dataset.game = VARIANTS[game.v].name.toLowerCase();
 }
 setInterval(() => { if (game && since) $('time').textContent = clock(played()); }, 1000);
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { stopClock(); write(); }
-  else if (counted && game && !won(game)) startClock();
+  else if (counted && game && !G().won(game)) startClock();
 });
 window.addEventListener('pagehide', () => { stopClock(); write(); });
 
@@ -237,9 +254,9 @@ function tiles(list) {
   return list.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('');
 }
 
-function showStats(drawCount) {
-  const st = stats[drawCount];
-  document.querySelectorAll('[data-stats]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.stats === drawCount)));
+function showStats(v) {
+  const st = stats[v];
+  $('stats-for').value = v;
   $('stats').innerHTML = tiles([
     ['Played', st.played],
     ['Won', st.won],
@@ -257,7 +274,7 @@ function read() {
 }
 
 function write() {
-  const g = game && !won(game) ? { state: game, history: history.slice(-500), elapsed: played(), counted } : null;
+  const g = game && !G().won(game) ? { state: game, history: history.slice(-500), elapsed: played(), counted } : null;
   try { localStorage.setItem(KEY, JSON.stringify({ settings, stats, next: dealer?.ready, game: g })); } catch { /* storage full or blocked */ }
 }
 
@@ -270,7 +287,7 @@ for (const [k, id] of Object.entries(toggles)) {
     apply();
     write();
     if (k === 'auto' && settings.auto && game && !table.locked) after();
-    if (k === 'winnable' && settings.winnable) { dealer.prepare(1); dealer.prepare(3); }
+    if (k === 'winnable' && settings.winnable && game) dealer.prepare(game.v);
   });
 }
 
@@ -280,7 +297,7 @@ function apply() {
   $('clock').hidden = !settings.clock;
   if (table.left !== settings.left) {
     table.left = settings.left;
-    if (game) { table.layout(); table.render(game, { still: true }); }
+    if (game) table.render(game, { still: true });
   }
 }
 
@@ -289,17 +306,22 @@ function apply() {
 $('b-new').addEventListener('click', openNew);
 $('b-undo').addEventListener('click', undo);
 $('b-hint').addEventListener('click', hint);
-$('b-menu').addEventListener('click', () => { showStats(game?.draw || settings.draw); openSheet('sheet-menu'); });
+$('b-menu').addEventListener('click', () => {
+  showStats(game?.v || settings.variant);
+  const name = VARIANTS[game?.v || settings.variant].name;
+  document.querySelectorAll('.howto details').forEach(d => { d.open = d.dataset.game === name.toLowerCase(); });
+  openSheet('sheet-menu');
+});
 $('b-restart').addEventListener('click', restart);
-document.querySelectorAll('[data-draw]').forEach(b => b.addEventListener('click', () => newGame(+b.dataset.draw)));
-document.querySelectorAll('[data-stats]').forEach(b => b.addEventListener('click', () => showStats(+b.dataset.stats)));
+$('stats-for').addEventListener('change', e => showStats(e.target.value));
+document.querySelectorAll('[data-v]').forEach(b => b.addEventListener('click', () => newGame(b.dataset.v)));
 document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeSheets));
 
 function openNew() {
   hideToast();
-  $('new-note').hidden = !(counted && game && !won(game));
+  $('new-note').hidden = !(counted && game && !G().won(game));
   $('b-restart').hidden = !game || !game.moves;
-  document.querySelectorAll('[data-draw]').forEach(b => b.classList.toggle('current', +b.dataset.draw === (game?.draw || settings.draw)));
+  document.querySelectorAll('[data-v]').forEach(b => b.classList.toggle('current', b.dataset.v === (game?.v || settings.variant)));
   openSheet('sheet-new');
 }
 
@@ -308,7 +330,7 @@ function openSheet(id) {
   closeSheets();
   opener = document.activeElement;
   $(id).hidden = false;
-  $(id).querySelector('.choice, .close, button')?.focus({ preventScroll: true });
+  $(id).querySelector('.current, .close, button')?.focus({ preventScroll: true });
 }
 function closeSheets() {
   const open = document.querySelectorAll('.sheet:not([hidden])');
@@ -321,10 +343,10 @@ let toastTimer = 0;
 function toast(text, actions = []) {
   const t = $('toast');
   t.textContent = text;
-  for (const [label, fn] of actions) {
+  for (const [name, fn] of actions) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = label;
+    b.textContent = name;
     b.addEventListener('click', () => { hideToast(); fn(); });
     t.append(b);
   }
@@ -336,11 +358,11 @@ function hideToast() { $('toast').hidden = true; clearTimeout(toastTimer); }
 
 document.addEventListener('keydown', e => {
   if (!$('sheet-new').hidden || !$('sheet-menu').hidden) { if (e.key === 'Escape') closeSheets(); return; }
-  if (!$('won').hidden || e.altKey) return;
+  if (!$('won').hidden || e.altKey || !game) return;
   const k = e.key.toLowerCase();
   if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
   else if (e.ctrlKey || e.metaKey) return;
-  else if (k === ' ' || k === 'd') { e.preventDefault(); act(draw(game)); }
+  else if (k === ' ' || k === 'd') { e.preventDefault(); table.on.stock(); }
   else if (k === 'h') hint();
   else if (k === 'n') openNew();
 });
@@ -354,18 +376,19 @@ if ('serviceWorker' in navigator && !('single' in document.documentElement.datas
 // ---- starting up: carry on with the saved game, or deal a new one ----
 
 apply();
-if (saved.game?.state && !won(saved.game.state)) {
-  game = saved.game.state;
+const resume = saved.game?.state;
+if (resume && VARIANTS[resume.v] && !gameOf(resume).won(resume)) {
+  game = resume;
   history = saved.game.history || [];
   elapsed = saved.game.elapsed || 0;
   counted = !!saved.game.counted;
   table.render(game, { still: true });
   showInfo();
   after();
+  if (settings.winnable) setTimeout(() => dealer.prepare(game.v), 4000);
 } else {
-  newGame(settings.draw);
+  newGame(settings.variant);
 }
-if (settings.winnable) setTimeout(() => { dealer.prepare(1); dealer.prepare(3); }, 4000);
 
 // For the tests and the screenshot tool.
 window.patience = {

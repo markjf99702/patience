@@ -2,9 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { card, safeUp, stacks, fits, suitOf } from '../js/cards.js';
-import { deal, draw, move, canDrop, bestTarget, autoStep, won, finishable, finishStep, forSolver, fromSolver, foundationFor, foundCounts, TABLEAU, FOUNDATIONS } from '../js/klondike.js';
-import { solve } from '../js/solver.js';
-import { outOfMoves } from '../js/deals.js';
+import { deal, draw, move, canDrop, bestTarget, autoStep, won, finishable, finishStep, forSolver, fromSolver, foundationFor, foundCounts, outOfMoves, TABLEAU, FOUNDATIONS } from '../js/games/klondike.js';
+import { solve } from '../js/solvers/klondike.js';
 
 const S = 0, H = 1, C = 2, D = 3;
 const top = a => a[a.length - 1];
@@ -147,7 +146,7 @@ for (const drawCount of [1, 3]) {
 test('a hint for a card deeper in the stock says to draw', () => {
   const s = draw(deal(3, 1));
   const p = forSolver(s);
-  assert.deepEqual(fromSolver(s, { k: 3, j: p.pos, b: 0 }), { draw: true });
+  assert.deepEqual(fromSolver(s, { k: 3, j: p.pos, b: 0 }), { stock: true });
   assert.equal(fromSolver(s, { k: 2, j: p.pos - 1 }).from, 'waste');
 });
 

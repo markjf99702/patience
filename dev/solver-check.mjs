@@ -1,7 +1,7 @@
 // Solves many deals, then replays each winning line through the table's own rules to make sure it really wins.
 //   node dev/solver-check.mjs [deals] [draw] [max positions]
-import { deal, forSolver, move, draw as drawCards, foundationFor, won, TABLEAU, FOUNDATIONS, foundCounts } from '../js/klondike.js';
-import { solve } from '../js/solver.js';
+import { deal, forSolver, move, draw as drawCards, foundationFor, won, TABLEAU, FOUNDATIONS, foundCounts } from '../js/games/klondike.js';
+import { solve } from '../js/solvers/klondike.js';
 import { fits, suitOf } from '../js/cards.js';
 
 const N = +(process.argv[2] || 200), D = +(process.argv[3] || 1), MAX = +(process.argv[4] || 200000);
