@@ -1,6 +1,6 @@
 # Patience
 
-**Play it: [junkdrawer.works/patience](https://junkdrawer.works/patience/)**
+**Play it: [patience.junkdrawer.works](https://patience.junkdrawer.works/)**
 
 **Klondike, FreeCell and Spider solitaire with no ads, no account and nothing to wait for.** Tap a card to send it where it fits or drag it there yourself, and undo as far back as you like. Every deal has been played through before it reaches you, so there's always a way to win, and the Hint button knows it.
 

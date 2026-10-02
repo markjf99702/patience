@@ -35,6 +35,7 @@ for (const sel of [':root', ':root[data-four]']) {
 for (const [, file] of css.matchAll(/url\(\.\.\/(fonts\/[^)]+\.woff2)\)/g)) css = css.replace(`url(../${file})`, `url(${await dataUri(file, 'font/woff2')})`);
 const icon = await dataUri('icon.svg', 'image/svg+xml');
 const html = (await read('index.html'))
+  .replace(/ *<script src="carry\.js"><\/script>\n/, '') // only needed at the game's own address
   .replace(/ *<link rel="(manifest|apple-touch-icon|preload)"[^>]*>\n/g, '')
   .replaceAll('"icon.svg"', () => `"${icon}"`)
   .replace('<link rel="stylesheet" href="css/app.css">', () => `<style>\n${css}</style>`)

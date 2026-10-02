@@ -2,9 +2,9 @@
 // Anything the person saves lives in localStorage, not here.
 // Network first, so a new version shows up as soon as you're online.
 
-const CACHE = 'patience-v2'; // bump the number when the file list changes
+const CACHE = 'patience-v3'; // bump the number when the file list changes
 const SHELL = [
-  './', 'index.html', 'icon.svg', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png',
+  './', 'index.html', 'carry.js', 'icon.svg', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png',
   'css/app.css', 'fonts/fraunces.woff2', 'fonts/figtree.woff2',
   'js/app.js', 'js/cards.js', 'js/deals.js', 'js/rng.js', 'js/suits.js', 'js/table.js', 'js/win.js',
   'js/games/index.js', 'js/games/klondike.js', 'js/games/freecell.js', 'js/games/spider.js', 'js/games/spider-deals.js',
