@@ -49,7 +49,20 @@ const fragment = html
   .replace(/<meta charset[^>]*>\s*/i, '')
   .replace(/<meta name="viewport"[^>]*>\s*/i, '');
 
+// That host pads the page clear of a phone's notch and home bar itself, so the game fills the padded frame
+// instead of the whole screen, and the header and buttons don't add the same padding again.
+const swaps = [
+  ['height: 100vh;\n  height: 100dvh;', 'height: 100%;'],
+  ['padding: calc(8px + env(safe-area-inset-top)) ', 'padding: 8px '],
+  [' calc(6px + env(safe-area-inset-bottom)) calc(10px', ' 6px calc(10px'],
+];
+let embedded = fragment;
+for (const [from, to] of swaps) {
+  if (!embedded.includes(from)) throw new Error(`build: expected to find ${JSON.stringify(from)} in the page`);
+  embedded = embedded.replace(from, to);
+}
+
 await mkdir(new URL('dist/', root), { recursive: true });
 await writeFile(new URL('dist/patience.html', root), html);
-await writeFile(new URL('dist/artifact.html', root), fragment);
+await writeFile(new URL('dist/artifact.html', root), embedded);
 console.log(`dist/patience.html  ${(html.length / 1024).toFixed(1)} KB`);
