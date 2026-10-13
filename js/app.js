@@ -305,7 +305,9 @@ function read() {
 }
 
 function write() {
-  const g = game && !G().won(game) ? { state: game, history: history.slice(-500), elapsed: played(), counted } : null;
+  // The whole undo list goes too, so Undo still goes all the way back after the page is closed. The last 2,000 moves
+  // is more than a game takes, and keeps the save to about a megabyte even in Spider.
+  const g = game && !G().won(game) ? { state: game, history: history.slice(-2000), elapsed: played(), counted } : null;
   try { localStorage.setItem(KEY, JSON.stringify({ settings, stats, next: dealer?.ready, game: g })); } catch { /* storage full or blocked */ }
 }
 

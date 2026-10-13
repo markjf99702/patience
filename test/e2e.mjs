@@ -506,6 +506,35 @@ assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems w
   await c4.close();
 }
 
+// A long game: after the page is closed, Undo still goes all the way back to the deal (it used to stop 500 moves back).
+{
+  const c5 = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  const p5 = await c5.newPage();
+  const errors = [];
+  p5.on('pageerror', e => errors.push(e.message));
+  const ready = () => p5.waitForFunction(() => window.patience?.state && !window.patience.busy, null, { timeout: 15000 });
+  const press = (key, times) => p5.evaluate(([key, times]) => {
+    for (let i = 0; i < times; i++) document.dispatchEvent(new KeyboardEvent('keydown', { key }));
+  }, [key, times]);
+  await p5.goto(base);
+  await ready();
+  await p5.evaluate(() => window.patience.newGame('k1', 11705));
+  await p5.waitForTimeout(1500);
+  await ready();
+  await press('d', 600);
+  await ready();
+  assert.equal((await p5.evaluate(() => window.patience.state)).moves, 600);
+  await p5.reload();
+  await ready();
+  await press('z', 600);
+  await ready();
+  const dealt = await p5.evaluate(() => window.patience.state);
+  assert.deepEqual([dealt.moves, dealt.stock.length, dealt.waste.length], [0, 24, 0], 'Undo went all the way back to the deal');
+  assert.equal(await p5.isDisabled('#b-undo'), true);
+  assert.deepEqual(errors, [], 'errors in a long game');
+  await c5.close();
+}
+
 await browser.close();
 server.close();
 console.log('all good');
