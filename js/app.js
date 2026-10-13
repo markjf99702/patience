@@ -58,8 +58,9 @@ const dealer = new Dealer(saved.next || {}, () => write());
 // ---- playing ----
 
 // Make a move the player asked for. Returns false if there was nothing to do.
+// A won game is finished: it can be looked at, but not played on or undone, so it can't be won twice.
 function act(next) {
-  if (!next || table.locked) return false;
+  if (!next || table.locked || G().won(game)) return false;
   cancelChain();
   table.clearHint();
   history.push(game);
@@ -121,7 +122,7 @@ function finish() {
 }
 
 function undo() {
-  if (!history.length || table.locked) return;
+  if (!history.length || table.locked || G().won(game)) return;
   cancelChain();
   hideToast();
   game = history.pop();
@@ -173,14 +174,18 @@ function start(state, again) {
 }
 
 async function hint() {
-  if (thinking || table.locked || !game) return;
+  if (thinking || table.locked || !game || G().won(game)) return;
   if (chain) { setTimeout(hint, 120); return; } // let cards going up by themselves land first
   const at = game;
   thinking = true;
   $('b-hint').classList.add('busy');
-  const h = await hintFor(game);
-  thinking = false;
-  $('b-hint').classList.remove('busy');
+  let h;
+  try {
+    h = await hintFor(game);
+  } finally {
+    thinking = false;
+    $('b-hint').classList.remove('busy');
+  }
   if (game !== at) return; // they moved on while it was thinking
   if (h.move) table.showHint(h.move);
   else if (h.lost) toast('Looks like there’s no way to win from here. Undo a few moves to try another way.', [['Undo', undo]]);
@@ -193,6 +198,7 @@ function victory() {
   chain = 0;
   table.locked = true;
   stopClock();
+  showInfo(); // the last cards may have gone up by themselves; Undo goes off
   const st = stats[game.v];
   if (!counted) st.played++;
   st.won++;
@@ -251,7 +257,7 @@ function showInfo() {
   $('status').textContent = `${label(game.v)} · Deal ${game.deal.toLocaleString('en-US')}`;
   $('moves').textContent = plural(game.moves, 'move');
   $('time').textContent = clock(played());
-  $('b-undo').disabled = !history.length;
+  $('b-undo').disabled = !history.length || G().won(game);
   document.documentElement.dataset.game = VARIANTS[game.v].name.toLowerCase();
 }
 setInterval(() => { if (game && since) $('time').textContent = clock(played()); }, 1000);

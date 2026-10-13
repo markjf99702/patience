@@ -348,7 +348,54 @@ assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems w
   const five = await p3.evaluate(() => ({ s: window.patience.state, v: window.patience.settings.variant }));
   assert.deepEqual([five.s.v, five.s.deal, five.v], ['k1', 5, 'k1']);
   assert.match(await p3.textContent('#status'), /Klondike, draw one · Deal 5/);
-  assert.deepEqual(errors, [], 'errors while switching games');
+
+  // A won game is finished. Back at the table from Choose a game, it can't be played on, undone or hinted.
+  const backToTable = async () => {
+    await p3.waitForSelector('#won:not([hidden])', { timeout: 30000 });
+    await p3.mouse.click(30, 300);
+    await p3.waitForSelector('#won .panel:not([hidden])');
+    await p3.click('#b-pick');
+    await p3.click('#sheet-new button[data-close]');
+  };
+  // FreeCell with everything up but the king and queen of diamonds, the king on the queen: tap the king to win.
+  await p3.evaluate(() => {
+    const D = 3, card = (suit, rank) => suit * 13 + rank - 1;
+    window.patience.load({
+      v: 'fc', deal: 617, cells: [null, null, null, null], moves: 90,
+      tab: [[card(D, 12), card(D, 13)], [], [], [], [], [], [], []],
+      found: [0, 1, 2, 3].map(suit => Array.from({ length: suit === D ? 11 : 13 }, (_, i) => card(suit, i + 1))),
+    });
+  });
+  const tapKing = async () => { await p3.click('.card[data-c="51"]', { position: { x: 12, y: 10 } }); };
+  await tapKing();
+  await backToTable();
+  const fcWin = await p3.evaluate(() => ({ ...window.patience.stats.fc }));
+  assert.equal(fcWin.won, 1);
+  assert.equal(await p3.isDisabled('#b-undo'), true, 'no undoing a won game');
+  await p3.keyboard.press('z');
+  await p3.click('#b-undo', { force: true });
+  await p3.waitForTimeout(400);
+  assert.equal((await p3.evaluate(() => window.patience.state)).found.flat().length, 52, 'still won');
+  // A king dragged back down from its foundation in won Klondike doesn't win it a second time.
+  await p3.evaluate(playInto, { v: 'k3', n: 11705, steps: 9999 });
+  await backToTable();
+  const kWin = await p3.evaluate(() => ({ ...window.patience.stats.k3 }));
+  const king = await p3.evaluate(() => window.patience.state.found[0][12]);
+  const from = await p3.locator(`.card[data-c="${king}"]`).boundingBox(), to = await p3.locator('.spot[data-pile="t0"]').boundingBox();
+  await p3.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await p3.mouse.down();
+  await p3.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 8 });
+  await p3.mouse.up();
+  await p3.waitForTimeout(1500);
+  assert.equal(await p3.isHidden('#won'), true, 'not won again');
+  // Hint on won Spider says nothing and stays ready.
+  await p3.evaluate(playInto, { v: 's1', n: 3, steps: 99999 });
+  await backToTable();
+  await p3.click('#b-hint');
+  await p3.waitForTimeout(600);
+  assert.equal(await p3.evaluate(() => document.getElementById('b-hint').classList.contains('busy')), false, 'Hint is ready');
+  assert.deepEqual(await p3.evaluate(() => [window.patience.stats.fc, window.patience.stats.k3]), [fcWin, kWin], 'each win counts once');
+  assert.deepEqual(errors, [], 'errors while switching games or after winning');
   await c3.close();
 }
 
