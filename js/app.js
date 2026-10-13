@@ -215,8 +215,10 @@ function victory() {
     ['Fastest', clock(st.fastest)],
   ]);
   const overlay = $('won'), panel = overlay.querySelector('.panel');
+  hideToast();
   overlay.hidden = false;
   panel.hidden = true;
+  modal();
   const showPanel = () => { panel.hidden = false; $('b-again').focus({ preventScroll: true }); };
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
     showPanel();
@@ -234,6 +236,7 @@ function closeWon() {
   const canvas = $('bounce');
   canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
   $('won').hidden = true;
+  modal();
   table.showAllCards();
   table.locked = false;
 }
@@ -346,15 +349,25 @@ function openNew() {
 let opener = null;
 function openSheet(id) {
   closeSheets();
-  opener = document.activeElement;
+  hideToast();
+  opener = document.activeElement; // before the page behind goes inert, which takes focus away from it
   $(id).hidden = false;
+  modal();
   ($(id).querySelector('.current') || $(id).querySelector('.close, button'))?.focus({ preventScroll: true });
 }
 function closeSheets() {
   const open = document.querySelectorAll('.sheet:not([hidden])');
   open.forEach(s => { s.hidden = true; });
+  modal(); // before focus goes back, since nothing inert can take it
   if (open.length && opener?.focus) opener.focus({ preventScroll: true });
   opener = null;
+}
+
+// While a sheet or the won panel is open, the table, its buttons and any message behind it can't be reached.
+function modal() {
+  const blocked = !!document.querySelector('.sheet:not([hidden])') || !$('won').hidden;
+  $('game').inert = blocked;
+  $('toast').inert = blocked;
 }
 
 let toastTimer = 0;

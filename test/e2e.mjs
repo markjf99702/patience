@@ -78,6 +78,13 @@ assert.equal((await state()).stock.length, 23, 'Space used the deck');
 await page.click('#b-undo');
 await step();
 
+// The menu keeps the keyboard to itself, and closing it gives focus back to Menu.
+const behind = () => page.evaluate(() => !!document.activeElement.closest('#game, #toast'));
+await page.click('#b-menu');
+for (let i = 0; i < 16; i++) { await page.keyboard.press('Tab'); assert.equal(await behind(), false, 'Tab left the menu'); }
+await page.keyboard.press('Escape');
+assert.equal(await page.evaluate(() => document.activeElement.id), 'b-menu', 'focus back on Menu');
+
 // Find a card that can move somewhere, drawing until there is one.
 async function findMove() {
   for (let i = 0; i < 40; i++) {
@@ -369,10 +376,13 @@ assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems w
   assert.match(await p3.textContent('#status'), /Klondike, draw one · Deal 5/);
 
   // A won game is finished. Back at the table from Choose a game, it can't be played on, undone or hinted.
-  const backToTable = async () => {
+  const wonPanel = async () => {
     await p3.waitForSelector('#won:not([hidden])', { timeout: 30000 });
     await p3.mouse.click(30, 300);
     await p3.waitForSelector('#won .panel:not([hidden])');
+  };
+  const backToTable = async () => {
+    await wonPanel();
     await p3.click('#b-pick');
     await p3.click('#sheet-new button[data-close]');
   };
@@ -387,7 +397,14 @@ assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems w
   });
   const tapKing = async () => { await p3.click('.card[data-c="51"]', { position: { x: 12, y: 10 } }); };
   await tapKing();
-  await backToTable();
+  await wonPanel();
+  // The won panel keeps the keyboard to itself too: no starting a game under it.
+  for (let i = 0; i < 6; i++) {
+    await p3.keyboard.press('Tab');
+    assert.equal(await p3.evaluate(() => !!document.activeElement.closest('#game, #toast')), false, 'Tab left the won panel');
+  }
+  await p3.click('#b-pick');
+  await p3.click('#sheet-new button[data-close]');
   const fcWin = await p3.evaluate(() => ({ ...window.patience.stats.fc }));
   assert.equal(fcWin.won, 1);
   assert.equal(await p3.isDisabled('#b-undo'), true, 'no undoing a won game');
