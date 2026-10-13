@@ -1,7 +1,7 @@
 {
   "name": "Patience",
   "short_name": "Patience",
-  "description": "Klondike solitaire with no ads. Every deal can be won, and it works offline.",
+  "description": "Klondike, FreeCell and Spider with no ads. Every deal can be won, and it works offline.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

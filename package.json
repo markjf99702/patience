@@ -2,7 +2,7 @@
   "name": "patience",
   "private": true,
   "type": "module",
-  "description": "Klondike solitaire with no ads. Every deal can be won, and it works offline.",
+  "description": "Klondike, FreeCell and Spider with no ads. Every deal can be won, and it works offline.",
   "scripts": {
     "start": "npx --yes http-server -c-1 -p 8080 .",
     "test": "node --test test/unit.test.mjs test/games.test.mjs && node test/e2e.mjs",
