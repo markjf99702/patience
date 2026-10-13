@@ -507,6 +507,7 @@ assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems w
 }
 
 // A long game: after the page is closed, Undo still goes all the way back to the deal (it used to stop 500 moves back).
+// And starting a deal again keeps its clock, so a fastest win counts all the time spent on the deal.
 {
   const c5 = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   const p5 = await c5.newPage();
@@ -531,6 +532,14 @@ assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems w
   const dealt = await p5.evaluate(() => window.patience.state);
   assert.deepEqual([dealt.moves, dealt.stock.length, dealt.waste.length], [0, 24, 0], 'Undo went all the way back to the deal');
   assert.equal(await p5.isDisabled('#b-undo'), true);
+
+  await p5.evaluate(() => { const s = structuredClone(window.patience.state); s.moves = 3; window.patience.load(s, 65000); });
+  await p5.click('#b-new');
+  await p5.click('#b-restart');
+  await p5.waitForTimeout(1500);
+  await ready();
+  assert.equal((await p5.evaluate(() => window.patience.state)).moves, 0, 'started again');
+  assert.equal(await p5.textContent('#time'), '1:05', 'and the clock carries on from where it was');
   assert.deepEqual(errors, [], 'errors in a long game');
   await c5.close();
 }
