@@ -236,7 +236,11 @@ test('a Spider run moved onto a card of the other suit counts when it uncovers c
 
 test('the four-suit deals checked in advance really are won by the solver', () => {
   assert.ok(FOUR_SUIT_DEALS.length >= 100);
-  for (const n of FOUR_SUIT_DEALS.slice(0, 3)) assert.equal(spider.search(spider.deal(n, 's4')).run(150000), 'won', `deal ${n}`);
+  for (const n of FOUR_SUIT_DEALS.slice(0, 3)) assert.equal(spider.search(spider.deal(n, 's4')).run(spider.budget.deal), 'won', `deal ${n}`);
+});
+
+test('Hint gets at least as long as a deal was checked for, so its first press on a new deal knows the way', () => {
+  for (const [v, { game }] of Object.entries(VARIANTS)) assert.ok(game.budget.hint >= game.budget.deal, v);
 });
 
 // ---- Hint ----
@@ -285,7 +289,8 @@ test('following Hint from a dealt deal wins, and Hint never goes round in circle
 });
 
 test('while you do what Hint says, it keeps to the way it found instead of searching again', async () => {
-  for (const [v, n, auto] of [['k1', 2011, true], ['k3', 2096, true], ['k3', 2018, false], ['fc', 1003, false], ['s2', 1001, true]]) {
+  // Four-suit deal 35, from the list checked in advance, takes the solver about 100,000 positions.
+  for (const [v, n, auto] of [['k1', 2011, true], ['k3', 2096, true], ['k3', 2018, false], ['fc', 1003, false], ['s2', 1001, true], ['s4', 35, true]]) {
     assert.equal(await followHint(v, n, { auto }), 1, `${v} deal ${n}`);
   }
 });

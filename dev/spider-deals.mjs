@@ -3,7 +3,8 @@
 import { writeFile } from 'node:fs/promises';
 import { spider } from '../js/games/spider.js';
 
-const WANT = +(process.argv[2] || 120), MAX = 150000, found = [];
+// Checked with the same limit as the deals the game finds itself, which Hint gets too, so its first press knows the way.
+const WANT = +(process.argv[2] || 120), MAX = spider.budget.deal, found = [];
 for (let n = 1; found.length < WANT; n++) {
   const s = spider.search(spider.deal(n, 's4'));
   if (s.run(MAX) === 'won') { found.push(n); process.stdout.write(`${found.length}:${n} `); }

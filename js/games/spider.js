@@ -180,5 +180,6 @@ export const spider = {
   },
 
   randomDeal: () => 1 + Math.floor(Math.random() * 999999),
-  budget: { deal: 120000, hint: 80000, all: 20000 },
+  // Hint gets as long as a deal was checked for, so its first press on a new deal finds the way through.
+  budget: { deal: 120000, hint: 120000, all: 20000 },
 };
