@@ -1,6 +1,7 @@
 // FreeCell and Spider rules and solvers, and Hint in every game, checked in Node:  node --test test/
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { card, suitOf, rankOf } from '../js/cards.js';
 import { freecell, room } from '../js/games/freecell.js';
 import { spider } from '../js/games/spider.js';
@@ -36,6 +37,22 @@ test('FreeCell runs move only as far as free cells and empty columns allow', () 
   const next = freecell.move(s, 't0', 5, 't1');
   assert.deepEqual(next.tab[1].map(name), ['TD', '9S', '8H', '7C', '6D', '5S']);
   assert.deepEqual(next.tab[0], []);
+});
+
+test('a FreeCell run going into an empty column has room for fewer cards, as the help says', async () => {
+  // Two free cells and one column empty: six cards can go onto a card, but only three into the empty column,
+  // since a column can't hold cards on the way while they're being moved into it.
+  const s = emptyFC();
+  s.tab[0] = [card(S, 9), card(H, 8), card(C, 7), card(D, 6), card(S, 5)];
+  s.tab[1] = [card(D, 10)];
+  s.tab[2] = [card(C, 13)]; s.tab[3] = [card(D, 13)]; s.tab[4] = [card(H, 13)]; s.tab[5] = [card(S, 13)]; s.tab[6] = [card(C, 12)];
+  s.cells = [card(H, 2), card(H, 3), null, null];
+  assert.deepEqual([room(s, false), room(s, true)], [6, 3]);
+  assert.ok(freecell.move(s, 't0', 5, 't1'), 'five onto the 10 of diamonds');
+  assert.equal(freecell.move(s, 't0', 4, 't7'), null, 'but not four into the empty column');
+  assert.ok(freecell.move(s, 't0', 3, 't7'), 'three can go there');
+  const help = (await readFile(new URL('../index.html', import.meta.url), 'utf8')).match(/<li>A run moves together[^<]*<\/li>/)[0];
+  assert.match(help, /doubled for each empty column it isn't going into/);
 });
 
 test('a FreeCell tap sends a card up, then onto a column, then into a free cell', () => {

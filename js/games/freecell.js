@@ -1,7 +1,7 @@
 // The rules of FreeCell, as the table plays them. All 52 cards are dealt face up into eight columns.
 // Build down in alternating colours, use the four free cells to hold one card each, and build the
 // foundations up from ace to king. A run moves as one if there's room to do it a card at a time:
-// one card per free cell plus one, doubled for each empty column.
+// one card per free cell plus one, doubled for each empty column it isn't going into.
 //
 // Piles are 'c0'..'c3' (free cells), 'f0'..'f3' (foundations) and 't0'..'t7' (columns).
 
