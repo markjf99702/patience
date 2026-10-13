@@ -101,7 +101,7 @@ function after() {
       return;
     }
   }
-  if (counted && g.outOfMoves(game)) {
+  if (counted && g.outOfMoves(game, { auto: settings.auto })) {
     toast('There are no moves left.', [['Undo', undo], ['New game', openNew]]);
   }
 }

@@ -23,10 +23,12 @@
 //   easyHint(s)             a hint for a position the solver calls as good as won
 //   search(s, { auto })     a solver for this position (step(budget), result, path, firstMove()); auto says whether
 //                           cards go up by themselves, which Klondike drawing three needs to know (on unless false)
-//   searchAll(s)            if search(s) leaves moves out: a solver that tries every move, to make sure before Hint says
-//                           there's no way to win (Spider)
+//   searchAll(s, { auto })  if search(s) leaves moves out: a solver that tries every move, to make sure before Hint says
+//                           there's no way to win (Klondike, Spider)
+//   lostStands              if searchAll runs out too, the first search's "no way to win" stands (Klondike); otherwise
+//                           Hint suggests the move that looked best
 //   fromSolver(s, m)        a solver move as a table move: { from, n, to }, or { stock: true }
-//   outOfMoves(s)           nothing useful left to do
+//   outOfMoves(s, { auto }) nothing useful left to do
 //   bounceOrder(s)          the cards in the order they bounce off the table when it's won
 //   dealOrder(s)            the cards in the order they're dealt, for the dealing animation
 //   randomDeal()            a deal number

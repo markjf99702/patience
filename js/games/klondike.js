@@ -225,19 +225,20 @@ function easyHint(s) {
 }
 
 // Is there anything useful left to do? Shuffling a run from one column to another doesn't count,
-// unless it would empty a column for a king that's waiting.
-export function outOfMoves(s) {
-  const p = forSolver(s);
+// unless it would empty a column for a king that's waiting. Nor do the moves the solver leaves out because they
+// seldom help, unless a quick look with every move finds they're the way through.
+export function outOfMoves(s, { auto = true } = {}) {
+  const p = forSolver(s, auto);
   const search = new Search(p);
   if (search.result === 'won' || search.rootAutos.length) return false;
   const moves = search.rootMoves;
   const shuffle = m => m.k === 1 && p.tab[m.a].length - m.n === 0;
   if (moves.some(m => !shuffle(m))) return false;
-  if (!moves.length) return true;
-  const kingWaiting =
+  const kingWaiting = moves.length && (
     p.talon.some(c => c % 13 === 12) ||
-    p.tab.some((t, a) => p.down[a] > 0 && t.length > p.down[a] && t[p.down[a]] % 13 === 12);
-  return !kingWaiting;
+    p.tab.some((t, a) => p.down[a] > 0 && t.length > p.down[a] && t[p.down[a]] % 13 === 12));
+  if (kingWaiting) return false;
+  return new Search(p, { every: true }).run(5000) !== 'won';
 }
 
 // Klondike for the table (see games/index.js for what each part is for).
@@ -279,6 +280,8 @@ export const klondike = {
   finishStep,
   easyHint,
   search: (s, { auto = true } = {}) => new Search(forSolver(s, auto)),
+  searchAll: (s, { auto = true } = {}) => new Search(forSolver(s, auto), { every: true }),
+  lostStands: true,
   fromSolver,
   outOfMoves,
 
@@ -295,5 +298,5 @@ export const klondike = {
   },
 
   randomDeal: () => 1 + Math.floor(Math.random() * 999999),
-  budget: { deal: 100000, hint: 300000 },
+  budget: { deal: 100000, hint: 300000, all: 50000 },
 };

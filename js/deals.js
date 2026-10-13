@@ -76,7 +76,12 @@ export async function hintFor(state, { auto = true } = {}) {
   const game = gameOf(state);
   let search = await think(game.search(state, { auto }), game.budget.hint);
   // A search that leaves out moves which seldom help can't say there's no way through; look again with every move.
-  if (search.result === 'lost' && game.searchAll) search = await think(game.searchAll(state), game.budget.all);
+  // If that runs out too, Klondike's answer stands: its first search leaves out so little that a way through it missed
+  // turns up quickly when there is one. Spider's leaves out more, so Hint suggests the move that looked best.
+  if (search.result === 'lost' && game.searchAll) {
+    const again = await think(game.searchAll(state, { auto }), game.budget.all);
+    if (again.result || !game.lostStands) search = again;
+  }
   if (search.result === 'won') {
     const m = search.path[0];
     return { move: m ? game.fromSolver(state, m) : game.easyHint(state) };

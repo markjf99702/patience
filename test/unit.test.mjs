@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { card, safeUp, stacks, fits, suitOf } from '../js/cards.js';
 import { deal, draw, move, canDrop, bestTarget, autoStep, won, finishable, finishStep, forSolver, fromSolver, foundationFor, foundCounts, outOfMoves, TABLEAU, FOUNDATIONS } from '../js/games/klondike.js';
-import { solve } from '../js/solvers/klondike.js';
+import { solve, Search } from '../js/solvers/klondike.js';
 import { hintFor } from '../js/deals.js';
 
 const S = 0, H = 1, C = 2, D = 3;
@@ -200,6 +200,39 @@ test('drawing three with cards going up by themselves off, Hint lets a card wait
   const r = solve(forSolver(s, false), 300000);
   assert.equal(r.result, 'won');
   assert.ok(replay(s, r.path), 'and that way through really wins');
+});
+
+// Cards from names like 'TS' (ten of spades), bottom to top.
+const cards = names => names.split(' ').filter(Boolean).map(x => card('SHCD'.indexOf(x.slice(-1)), 'A23456789TJQK'.indexOf(x.slice(0, -1)) + 1));
+const upTo = (suit, n) => Array.from({ length: n }, (_, i) => card(suit, i + 1));
+const column = (down, up) => ({ down: cards(down), up: cards(up) });
+
+test('a game whose way through needs part of a run moved or a card taken back down is neither lost nor out of moves', async () => {
+  // Deal 378865 after 71 moves: nothing is left in the stock, and none of the moves the solver tries first helps, but
+  // moving part of a run does. It used to say there were no moves left, and Hint that there was no way to win.
+  const s = {
+    v: 'k1', deal: 378865, draw: 1, stock: [], waste: cards('JC QC'), fan: 1, moves: 71,
+    found: [upTo(C, 7), upTo(D, 2), upTo(H, 2), []],
+    tab: [column('', 'QD JS TH 9S 8H 7S 6D 5S 4H 3S'), column('', 'KD QS JD TC 9D 8C 7D 6S 5H'), column('', 'KS'), column('', 'KC'),
+      column('3D 6H AS', '5D 4S 3H 2S'), column('4D QH', 'JH TS 9H 8S 7H'), column('KH', 'TD 9C 8D')],
+  };
+  assert.equal(outOfMoves(s), false);
+  const h = await hintFor(s);
+  assert.ok(h.move && !h.move.stock, `Hint said ${JSON.stringify(h)}`);
+  assert.ok(move(s, h.move.from, h.move.n, h.move.to), 'and the move is one the table allows');
+  const all = new Search(forSolver(s), { every: true });
+  assert.equal(all.run(5000), 'won');
+  assert.ok(replay(s, all.path), 'and that way through really wins');
+
+  // Deal 546070 drawing three, all face up with four empty columns: the way through takes the 10 of spades and the
+  // 9 of hearts back down from the foundations.
+  const t = {
+    v: 'k3', deal: 546070, draw: 3, stock: cards('5C TD KC QH 7C JS'), waste: [], fan: 0, moves: 600,
+    found: [upTo(H, 9), upTo(S, 10), upTo(D, 6), upTo(C, 4)],
+    tab: [column('', 'KS QD JC TH 9C 8D'), column('', ''), column('', ''), column('', 'KH QC JD'), column('', ''), column('', ''), column('', 'KD QS JH TC 9D 8C 7D 6C')],
+  };
+  const g = await hintFor(t);
+  assert.ok(g.move, `Hint said ${JSON.stringify(g)}`);
 });
 
 test('a hint for a card deeper in the stock says to draw', () => {

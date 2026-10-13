@@ -27,7 +27,10 @@ import { suitOf, rankOf, isRed, stacks, fits, safeUp } from '../cards.js';
 const top = a => a[a.length - 1];
 
 export class Search {
-  constructor(p) {
+  // every: also try the moves left out below because they seldom help (part of a run onto any card it fits, any card
+  // back down from the foundations), to make sure before saying there's no way through.
+  constructor(p, { every = false } = {}) {
+    this.every = every;
     this.tab = p.tab.map(c => c.slice());
     this.down = p.down.slice();
     this.found = p.found.slice();
@@ -258,6 +261,24 @@ export class Search {
       const other = isRed(c) ? [0, 2] : [1, 3];
       if (!free[other[0] * 13 + r - 2] && !free[other[1] * 13 + r - 2]) continue;
       for (let b = 0; b < 7; b++) if (tab[b].length && stacks(c, top(tab[b]))) add(5, { k: 4, s, b });
+    }
+
+    // Looking again with every move: the ones left out above, after all the rest.
+    if (this.every) {
+      const sig = m => (m.k === 1 ? 10000 + m.a * 1000 + m.b * 100 + m.n : 40000 + m.s * 10 + m.b);
+      const have = new Set(out.filter(m => m.k === 1 || m.k === 4).map(sig));
+      const more = m => { if (!have.has(sig(m))) { have.add(sig(m)); add(0, m); } };
+      for (let a = 0; a < 7; a++) {
+        const t = tab[a], len = t.length;
+        for (let i = down[a] + 1; i < len; i++) {
+          for (let b = 0; b < 7; b++) if (b !== a && tab[b].length && stacks(t[i], top(tab[b]))) more({ k: 1, a, b, n: len - i });
+        }
+      }
+      for (let s = 0; s < 4; s++) {
+        if (found[s] < 2) continue;
+        const c = s * 13 + found[s] - 1;
+        for (let b = 0; b < 7; b++) if (tab[b].length && stacks(c, top(tab[b]))) more({ k: 4, s, b });
+      }
     }
 
     out.sort((x, y) => y.score - x.score);
