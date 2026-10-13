@@ -169,9 +169,9 @@ function start(state, again) {
   clearTimeout(landed);
   game = state;
   history = [];
-  // Starting the same deal again keeps its clock (stopped until the next move), so a fastest win counts all the time
-  // spent on that deal, not just the last try.
-  if (again) stopClock();
+  // Starting the same deal again part way through keeps its clock (stopped until the next move), so a fastest win counts
+  // all the time spent on that deal, not just the last try. Once it's won, starting it again is a new game with a new clock.
+  if (again && counted) stopClock();
   else { elapsed = 0; since = 0; counted = false; }
   table.render(game, { deal: true });
   showInfo();

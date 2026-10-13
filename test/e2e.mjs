@@ -507,7 +507,7 @@ assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems w
 }
 
 // A long game: after the page is closed, Undo still goes all the way back to the deal (it used to stop 500 moves back).
-// And starting a deal again keeps its clock, so a fastest win counts all the time spent on the deal.
+// And starting a deal again keeps its clock, so a fastest win counts all the time spent on the deal, until it's won.
 {
   const c5 = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
   const p5 = await c5.newPage();
@@ -540,6 +540,25 @@ assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems w
   await ready();
   assert.equal((await p5.evaluate(() => window.patience.state)).moves, 0, 'started again');
   assert.equal(await p5.textContent('#time'), '1:05', 'and the clock carries on from where it was');
+
+  // Once the deal is won, starting it again is a new game, with a new clock.
+  await p5.evaluate(() => {
+    const card = (suit, rank) => suit * 13 + rank - 1;
+    window.patience.load({
+      v: 'k1', deal: 11705, draw: 1, stock: [], waste: [], fan: 0, moves: 140,
+      found: [0, 1, 2, 3].map(suit => Array.from({ length: suit === 0 ? 12 : 13 }, (_, i) => card(suit, i + 1))),
+      tab: [{ down: [], up: [card(0, 13)] }, ...Array.from({ length: 6 }, () => ({ down: [], up: [] }))],
+    }, 65000);
+  });
+  await p5.waitForSelector('#won:not([hidden])', { timeout: 30000 });
+  await p5.mouse.click(30, 300);
+  await p5.waitForSelector('#won .panel:not([hidden])');
+  await p5.click('#b-pick');
+  await p5.click('#b-restart');
+  await p5.waitForTimeout(1500);
+  await ready();
+  assert.equal((await p5.evaluate(() => window.patience.state)).moves, 0, 'the won deal started again');
+  assert.equal(await p5.textContent('#time'), '0:00', 'with a new clock');
   assert.deepEqual(errors, [], 'errors in a long game');
   await c5.close();
 }
