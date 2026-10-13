@@ -38,9 +38,9 @@ const rules = {
     return { state: n, autos: [] };
   },
 
-  // The whole suited run at the top of a column moves, and only somewhere that helps:
+  // The whole suited run at the top of a column moves, and only somewhere that usually helps:
   // off a face-down card, off a card it doesn't belong on, or onto a card of its own suit.
-  // Moving a run from one card of the wrong suit to another goes nowhere, so it isn't tried.
+  // Moving a run from one card of the wrong suit to another, or only part of a run, seldom helps, so neither is tried.
   moves(s) {
     const out = [], { tab, down } = s;
     let firstEmpty = -1;
@@ -88,6 +88,60 @@ const rules = {
   done(s) { return s.sets === 8; },
 };
 
+// The same, but trying every move the table allows: any part of the run at the top of a column, onto any card
+// one higher or into an empty column. Far slower to win with, so it's only for making sure, before saying
+// a position can't be won, that none of the moves left out above was the way through.
+const everyMove = {
+  ...rules,
+  moves(s) {
+    const out = [], { tab, down } = s;
+    let firstEmpty = -1;
+    for (let a = 0; a < 10; a++) if (!tab[a].length) { firstEmpty = a; break; }
+    for (let a = 0; a < 10; a++) {
+      const t = tab[a], len = t.length;
+      if (!len) continue;
+      let i = len - 1;
+      while (i > down[a] && follows(t[i], t[i - 1])) i--;
+      for (let j = i; j < len; j++) {
+        for (let b = 0; b < 10; b++) {
+          if (b === a) continue;
+          const tb = tab[b];
+          if (!tb.length) {
+            if (b === firstEmpty && j > 0) out.push({ a, i: j, b }); // a whole column into an empty one changes nothing
+          } else if (rankOf(top(tb)) === rankOf(t[j]) + 1) {
+            out.push({ a, i: j, b });
+          }
+        }
+      }
+    }
+    if (s.stock.length && firstEmpty < 0) out.push({ deal: true });
+    return out;
+  },
+};
+
+// Nothing to do but move cards back and forth: no move, or string of moves, turns a card over, clears a run or
+// empties a column. Tries every move, splitting runs too. Gives up and says no after `cap` positions.
+export function stuck(position, cap = 400) {
+  const { state } = rules.start(position);
+  const downs = s => s.down.reduce((a, b) => a + b, 0), empties = s => s.tab.filter(t => !t.length).length;
+  const sets = state.sets, d0 = downs(state), e0 = empties(state);
+  const seen = new Set([rules.key(state)]), todo = [state];
+  while (todo.length) {
+    const s = todo.pop();
+    for (const m of everyMove.moves(s)) {
+      if (m.deal) return false;
+      const next = rules.apply(s, m).state;
+      if (next.sets > sets || downs(next) < d0 || empties(next) > e0) return false;
+      const k = rules.key(next);
+      if (seen.has(k)) continue;
+      if (seen.size >= cap) return false;
+      seen.add(k);
+      todo.push(next);
+    }
+  }
+  return true;
+}
+
 // Take away a finished king-to-ace run of one suit from the top of column a.
 function clear(s, a) {
   const t = s.tab[a], len = t.length;
@@ -99,8 +153,9 @@ function clear(s, a) {
   if (s.down[a] && s.tab[a].length === s.down[a]) s.down[a]--;
 }
 
+// every: try every move (see everyMove), not just the ones that usually help.
 export class SpiderSearch extends BestFirst {
-  constructor(position) { super(rules, position, { weight: 0.2 }); }
+  constructor(position, { every = false } = {}) { super(every ? everyMove : rules, position, { weight: 0.2 }); }
 }
 
 export { rules as spiderRules };

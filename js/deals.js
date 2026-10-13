@@ -74,7 +74,9 @@ export class Dealer {
 //   { none: true }              nothing left to do at all
 export async function hintFor(state) {
   const game = gameOf(state);
-  const search = await think(game.search(state), game.budget.hint);
+  let search = await think(game.search(state), game.budget.hint);
+  // A search that leaves out moves which seldom help can't say there's no way through; look again with every move.
+  if (search.result === 'lost' && game.searchAll) search = await think(game.searchAll(state), game.budget.all);
   if (search.result === 'won') {
     const m = search.path[0];
     return { move: m ? game.fromSolver(state, m) : game.easyHint(state) };

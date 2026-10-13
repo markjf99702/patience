@@ -6,6 +6,7 @@ import { freecell, room } from '../js/games/freecell.js';
 import { spider } from '../js/games/spider.js';
 import { VARIANTS } from '../js/games/index.js';
 import { FOUR_SUIT_DEALS } from '../js/games/spider-deals.js';
+import { hintFor } from '../js/deals.js';
 
 const S = 0, H = 1, C = 2, D = 3;
 const name = c => 'A23456789TJQK'[rankOf(c) - 1] + 'SHCD'[suitOf(c)];
@@ -140,6 +141,81 @@ for (const [v, n, count] of [['s1', 8, 7], ['s2', 4, 3]]) {
     assert.ok(wins >= count, `only ${wins} of ${n} deals solved`);
   });
 }
+
+// A Spider position with nothing left to deal, built from ranks. One suit plays spades, two suits spades and hearts;
+// each card is the next copy of it not used yet (see cards.js). `cleared` is how many runs of each suit are gone.
+function spiderEnd(v, cleared, cols) {
+  const used = {};
+  const next = (suit, rank) => { const k = suit * 13 + rank - 1; used[k] = (used[k] || 0) + 1; return (used[k] - 1) * 52 + k; };
+  const sets = cleared.flatMap((n, suit) => Array.from({ length: n }, () => Array.from({ length: 13 }, (_, r) => next(suit, r + 1))));
+  const tab = cols.map(([down, up]) => ({ down: down.map(([s, r]) => next(s, r)), up: up.map(([s, r]) => next(s, r)) }));
+  const all = [...sets.flat(), ...tab.flatMap(t => [...t.down, ...t.up])];
+  assert.equal(new Set(all).size, 104, 'every card once');
+  assert.ok(all.every(c => spider.cardIds({ v }).includes(c)), 'only cards from this deck');
+  return { v, deal: 0, tab, stock: [], sets, moves: 100 };
+}
+const sp = r => [S, r], ht = r => [H, r];
+
+test('a Spider game that needs part of a run moved is neither lost nor out of moves', async () => {
+  // K to 9 in the first column, 10 to A in the second: moving 8 to A onto the 9 clears a run, and the rest can be won.
+  const tops = [13, 13, 10, 6, 6, 4, 4, 2], downs = [12, 12, 11, 11, 9, 8, 8, 7, 7, 5, 5, 3, 3, 2, 1, 1];
+  const s = spiderEnd('s1', [5], [
+    [[], [13, 12, 11, 10, 9].map(sp)],
+    [[], [10, 9, 8, 7, 6, 5, 4, 3, 2, 1].map(sp)],
+    ...tops.map((r, i) => [[sp(downs[2 * i]), sp(downs[2 * i + 1])], [sp(r)]]),
+  ]);
+  assert.equal(spider.outOfMoves(s), false);
+  const h = await hintFor(s);
+  assert.ok(h.move && !h.move.stock, `hint said ${JSON.stringify(h)}`);
+  let t = spider.move(s, h.move.from, h.move.n, h.move.to);
+  assert.ok(t, 'the hint is a move the table allows');
+  const search = spider.searchAll(t);
+  assert.equal(search.run(100000), 'won', 'and it still leads to a win');
+  for (const m of search.path) {
+    const ui = spider.fromSolver(t, m);
+    t = ui.stock ? spider.stock(t) : spider.move(t, ui.from, ui.n, ui.to);
+    assert.ok(t, `illegal ${JSON.stringify(m)}`);
+  }
+  assert.ok(spider.won(t));
+});
+
+test('Spider is out of moves when cards can only go back and forth, and Hint says it can’t be won', async () => {
+  // The 7 can go from one 8 to the other and back, and nothing else can move.
+  const s = spiderEnd('s1', [5], [
+    [[sp(2), sp(2)], [sp(8), sp(7)]],
+    [[sp(2), sp(4)], [sp(8)]],
+    [[sp(4), sp(4), sp(6)], [sp(13)]],
+    [[sp(6), sp(6), sp(9)], [sp(13)]],
+    [[sp(9), sp(9), sp(10)], [sp(13)]],
+    [[sp(10), sp(10), sp(12)], [sp(11)]],
+    [[sp(12), sp(12), sp(1)], [sp(11)]],
+    [[sp(1), sp(3), sp(3)], [sp(5)]],
+    [[sp(5), sp(7), sp(11)], [sp(3)]],
+    [[sp(7), sp(8), sp(5)], [sp(1)]],
+  ]);
+  assert.ok(spider.move(s, 't0', 1, 't1'), 'the 7 can move');
+  assert.equal(spider.outOfMoves(s), true);
+  assert.deepEqual(await hintFor(s), { lost: true });
+});
+
+test('a Spider run moved onto a card of the other suit counts when it uncovers cards that can go somewhere', () => {
+  // The spade 7 can only go onto the other heart 8; then hearts 10 to 8 go onto the jack and turn a card over.
+  const s = spiderEnd('s2', [3, 2], [
+    [[sp(2)], [ht(10), ht(9), ht(8), sp(7)]],
+    [[sp(4), sp(5), sp(6)], [ht(8)]],
+    [[sp(8), sp(9), sp(10)], [sp(11)]],
+    [[sp(12), ht(1), ht(2)], [sp(13)]],
+    [[ht(2), ht(3), ht(3)], [ht(13)]],
+    [[ht(4), ht(4), ht(5)], [ht(13)]],
+    [[ht(6), ht(6), ht(7)], [ht(1)]],
+    [[ht(7), ht(9), ht(10)], [sp(1)]],
+    [[ht(11), ht(11)], [ht(5)]],
+    [[ht(12), ht(12)], [sp(3)]],
+  ]);
+  assert.equal(spider.outOfMoves(s), false);
+  const t = spider.move(spider.move(s, 't0', 1, 't1'), 't0', 3, 't2');
+  assert.deepEqual([t.tab[0].down.length, t.tab[0].up.map(name)], [0, ['2S']], 'the card underneath turned over');
+});
 
 test('the four-suit deals checked in advance really are won by the solver', () => {
   assert.ok(FOUR_SUIT_DEALS.length >= 100);

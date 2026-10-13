@@ -58,7 +58,7 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `js/solvers/klondike.js`: the Klondike solver. A depth-first search that sees the face-down cards, offers every card the stock can reach as a move of its own, and never looks at the same position twice. Within its limit it wins about 84% of deals drawing one and 73% drawing three, close to the share that can be won at all.
 - `js/solvers/best-first.js`: a best-first search shared by the FreeCell and Spider solvers, which always looks next at the most promising position found so far.
 - `js/solvers/freecell.js`: the FreeCell solver. It wins 99 of the first 100 Windows deals in about a tenth of a second each, and proves game 11982, the famous one, can't be won.
-- `js/solvers/spider.js`: the Spider solver. It wins nearly every one-suit deal and nine in ten two-suit deals within its limit; four-suit deals are harder, a little over one in four.
+- `js/solvers/spider.js`: the Spider solver. It wins nearly every one-suit deal and nine in ten two-suit deals within its limit; four-suit deals are harder, a little over one in four. To be quick it leaves out moves that seldom help, like moving only part of a run, so before Hint says a game can't be won it looks again with every move.
 - `js/deals.js`: runs a solver a slice at a time, between frames, to find winnable deals and hints.
 - `js/table.js`: the table. Card sizes and layout for whichever game it is, the movement, tapping and dragging.
 - `js/win.js`: the bouncing cards.

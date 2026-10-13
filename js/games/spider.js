@@ -7,7 +7,7 @@
 
 import { suitOf, rankOf } from '../cards.js';
 import { shuffle } from '../rng.js';
-import { SpiderSearch, spiderRules } from '../solvers/spider.js';
+import { SpiderSearch, stuck } from '../solvers/spider.js';
 
 const T = Array.from({ length: 10 }, (_, i) => 't' + i);
 const SUITS = { s1: [0], s2: [0, 1], s4: [0, 1, 2, 3] };
@@ -148,6 +148,7 @@ export const spider = {
     return { tab: s.tab.map(t => [...t.down, ...t.up]), down: s.tab.map(t => t.down.length), stock: s.stock.slice(), sets: s.sets.length };
   },
   search(s) { return new SpiderSearch(spider.position(s)); },
+  searchAll(s) { return new SpiderSearch(spider.position(s), { every: true }); },
 
   fromSolver(s, m) {
     if (m.deal) return { stock: true };
@@ -155,10 +156,11 @@ export const spider = {
     return { from: T[m.a], n: t.down.length + t.up.length - m.i, to: T[m.b] };
   },
 
-  // Nothing useful left: no row to deal and no run that can go anywhere it helps.
+  // Nothing useful left: no row to deal, and nothing to do but move cards back and forth. Every move counts,
+  // splitting a run too, since one that seldom helps can still be the only way to turn a card over or clear a run.
   outOfMoves(s) {
     if (s.stock.length) return false;
-    return spiderRules.moves(spiderRules.start(spider.position(s)).state).length === 0;
+    return stuck(spider.position(s));
   },
 
   // The cleared runs come down off the table kings first, the last one cleared first.
@@ -178,5 +180,5 @@ export const spider = {
   },
 
   randomDeal: () => 1 + Math.floor(Math.random() * 999999),
-  budget: { deal: 120000, hint: 80000 },
+  budget: { deal: 120000, hint: 80000, all: 20000 },
 };

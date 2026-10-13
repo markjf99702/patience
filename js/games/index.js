@@ -22,12 +22,14 @@
 //   won(s), finishable(s), finishStep(s)    finished; ready to finish by itself; the next card when it does
 //   easyHint(s)             a hint for a position the solver calls as good as won
 //   search(s)               a solver for this position (step(budget), result, path, firstMove())
+//   searchAll(s)            if search(s) leaves moves out: a solver that tries every move, to make sure before Hint says
+//                           there's no way to win (Spider)
 //   fromSolver(s, m)        a solver move as a table move: { from, n, to }, or { stock: true }
 //   outOfMoves(s)           nothing useful left to do
 //   bounceOrder(s)          the cards in the order they bounce off the table when it's won
 //   dealOrder(s)            the cards in the order they're dealt, for the dealing animation
 //   randomDeal()            a deal number
-//   budget                  how many positions the solver may look at: { deal, hint }
+//   budget                  how many positions the solver may look at: { deal, hint }, and { all } for searchAll
 
 import { klondike } from './klondike.js';
 import { freecell } from './freecell.js';
