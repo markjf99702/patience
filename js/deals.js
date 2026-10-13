@@ -67,6 +67,45 @@ export class Dealer {
   }
 }
 
+// The way through Hint found last: every table it passes through, as the page plays it, with the move to show there.
+// While the player does what Hint says (or comes back to a table on the way), the next move comes from here instead
+// of a new search. That's quicker, and it can't lead back where it came from: a new search from each table sometimes
+// did, a card up to its foundation and straight back down, round and round for good.
+let line = new Map();
+
+// A table, the same however many moves it took to get there.
+const where = s => JSON.stringify(s, (k, x) => (k === 'moves' || k === 'fan' ? undefined : x));
+
+// What the page does after a move: cards that can go up by themselves do, unless the game is about to finish itself.
+function settle(game, s, auto) {
+  for (let step; auto && !game.won(s) && !game.finishable(s) && (step = game.autoStep(s));) s = game.move(s, step.from, step.n, step.to);
+  return s;
+}
+
+// Play a solver's winning line on the table from here, noting the move to show at each table on the way.
+// A card the line sends up that has already gone up by itself is skipped, and a card it wants from the stock is
+// drawn for, a tap at a time. Once the line ends (as good as won) the easy hints carry on until the game finishes itself.
+function follow(game, s, path, auto) {
+  const out = new Map();
+  let i = 0, taps = []; // the taps on the stock so far toward the card the line wants next
+  for (let guard = 0; guard < 5000 && !game.won(s) && !game.finishable(s); guard++) {
+    while (i < path.length && game.upAlready?.(s, path[i])) { i++; taps = []; }
+    const m = i < path.length ? game.fromSolver(s, path[i]) : game.easyHint?.(s);
+    const next = m && (m.stock ? game.stock(s) : game.move(s, m.from, m.n, m.to));
+    const here = where(s);
+    if (!next || out.has(here)) { // the line doesn't fit the table after all, so Hint will search again from here
+      for (const t of taps) out.delete(t); // drawing for a card that wasn't coming
+      break;
+    }
+    out.set(here, m);
+    // A tap on the stock on the way to a card isn't a step of the line, but dealing a row in Spider is.
+    if (m.stock && !path[i]?.deal) taps.push(here);
+    else { taps = []; if (i < path.length) i++; }
+    s = settle(game, next, auto);
+  }
+  return out;
+}
+
 // What to suggest from here, with cards going up by themselves or not (the setting). Resolves with one of:
 //   { move: { from, n, to } }   play this
 //   { move: { stock: true } }   tap the stock
@@ -74,6 +113,9 @@ export class Dealer {
 //   { none: true }              nothing left to do at all
 export async function hintFor(state, { auto = true } = {}) {
   const game = gameOf(state);
+  const known = line.get(where(state));
+  if (known) return { move: known };
+  line = new Map();
   let search = await think(game.search(state, { auto }), game.budget.hint);
   // A search that leaves out moves which seldom help can't say there's no way through; look again with every move.
   // If that runs out too, Klondike's answer stands: its first search leaves out so little that a way through it missed
@@ -83,8 +125,9 @@ export async function hintFor(state, { auto = true } = {}) {
     if (again.result || !game.lostStands) search = again;
   }
   if (search.result === 'won') {
+    line = follow(game, state, search.path, auto);
     const m = search.path[0];
-    return { move: m ? game.fromSolver(state, m) : game.easyHint(state) };
+    return { move: line.get(where(state)) ?? (m ? game.fromSolver(state, m) : game.easyHint(state)) };
   }
   if (search.result === 'lost') return { lost: true };
   // Ran out of time: suggest the move that looked best.

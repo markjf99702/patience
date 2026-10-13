@@ -25,7 +25,7 @@
 - **Tap or drag.** A tap sends cards to the best place: up to a foundation if they can go, otherwise onto a column (in FreeCell, a free cell if nothing else fits; in Spider, a card of the same suit first). Drag a card, or a run, anywhere the rules allow; drop it somewhere it doesn't fit and it slides back.
 - **Undo all the way back,** even after closing the page and coming back to it.
 - **Deals that can be won.** Before a deal reaches you, a solver plays it through, seeing every face-down card, and any deal it can't win in time is shuffled away. Four-suit Spider is slow to check, so the first one comes from a list of deals already checked while the next is found in the background. Turn this off in the menu if you'd rather take your chances.
-- **A hint that knows the way.** Hint asks the same solver for the next move from where you are. If an earlier move has left no way to win, it says so, and Undo takes you back to try another.
+- **A hint that knows the way.** Hint asks the same solver for the next move from where you are, and while you do what it says, it keeps to the way it found. If an earlier move has left no way to win, it says so, and Undo takes you back to try another.
 - **Cards go up by themselves** in Klondike and FreeCell once nothing on the table could still need them, and when the rest is in order the game finishes itself. You can switch the first part off.
 - **The bouncing cards** when you win, as tradition requires.
 - **Your record** for each of the six ways of playing: games played, won, win rate, streak, best streak and fastest win.

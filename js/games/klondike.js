@@ -196,15 +196,19 @@ export function forSolver(s, auto = true) {
 }
 
 // Turn a solver move back into one the table understands. A card deeper in the stock comes back as a tap on the stock.
+// A card from the stock is known by the card itself when the move says which: further along a line, the solver's
+// count of places in the stock can be off by the cards the table sent up by themselves on the way.
 export function fromSolver(s, m) {
   const counts = foundCounts(s);
   switch (m.k) {
     case 0: return { from: TABLEAU[m.a], n: 1, to: foundationFor(s, top(s.tab[m.a].up)) };
     case 1: return { from: TABLEAU[m.a], n: m.n, to: TABLEAU[m.b] };
     case 2:
-    case 3:
-      if (m.j !== s.waste.length - 1) return { stock: true };
-      return { from: 'waste', n: 1, to: m.k === 2 ? foundationFor(s, top(s.waste)) : TABLEAU[m.b] };
+    case 3: {
+      const c = m.c ?? [...s.waste, ...s.stock.slice().reverse()][m.j];
+      if (c !== top(s.waste)) return { stock: true };
+      return { from: 'waste', n: 1, to: m.k === 2 ? foundationFor(s, c) : TABLEAU[m.b] };
+    }
     case 4: {
       const i = s.found.findIndex(f => f.length && suitOf(f[0]) === m.s && f.length === counts[m.s]);
       return { from: FOUNDATIONS[i], n: 1, to: TABLEAU[m.b] };
@@ -283,6 +287,7 @@ export const klondike = {
   searchAll: (s, { auto = true } = {}) => new Search(forSolver(s, auto), { every: true }),
   lostStands: true,
   fromSolver,
+  upAlready: (s, m) => (m.k === 0 || m.k === 2) && s.found.some(f => f.includes(m.c)),
   outOfMoves,
 
   bounceOrder(s) {

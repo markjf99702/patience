@@ -28,6 +28,7 @@
 //   lostStands              if searchAll runs out too, the first search's "no way to win" stands (Klondike); otherwise
 //                           Hint suggests the move that looked best
 //   fromSolver(s, m)        a solver move as a table move: { from, n, to }, or { stock: true }
+//   upAlready(s, m)         whether a solver move sending a card up is done already, the card having gone up by itself
 //   outOfMoves(s, { auto }) nothing useful left to do
 //   bounceOrder(s)          the cards in the order they bounce off the table when it's won
 //   dealOrder(s)            the cards in the order they're dealt, for the dealing animation

@@ -1,4 +1,4 @@
-// FreeCell and Spider rules and solvers, checked in Node:  node --test test/
+// FreeCell and Spider rules and solvers, and Hint in every game, checked in Node:  node --test test/
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { card, suitOf, rankOf } from '../js/cards.js';
@@ -221,3 +221,55 @@ test('the four-suit deals checked in advance really are won by the solver', () =
   assert.ok(FOUR_SUIT_DEALS.length >= 100);
   for (const n of FOUR_SUIT_DEALS.slice(0, 3)) assert.equal(spider.search(spider.deal(n, 's4')).run(150000), 'won', `deal ${n}`);
 });
+
+// ---- Hint ----
+
+// Press Hint and do what it says, with the page's own after-move steps in between (cards going up by themselves if
+// `auto`, and finishing by itself), until the game is won. Hint must never lead back to a table it has been at.
+// Returns how many times Hint searched.
+async function followHint(v, n, { auto = true, cap = 600 } = {}) {
+  const game = VARIANTS[v].game, search = game.search;
+  let searches = 0;
+  game.search = (...args) => { searches++; return search(...args); };
+  try {
+    const settle = s => { for (let st; auto && !game.won(s) && !game.finishable(s) && (st = game.autoStep(s));) s = game.move(s, st.from, st.n, st.to); return s; };
+    const where = s => JSON.stringify(s, (k, x) => (k === 'moves' || k === 'fan' ? undefined : x));
+    const seen = new Set();
+    let s = settle(game.deal(n, v));
+    for (let i = 0; i < cap && !game.won(s); i++) {
+      while (game.finishable(s)) { const st = game.finishStep(s); s = game.move(s, st.from, st.n, st.to); }
+      if (game.won(s)) break;
+      assert.ok(!seen.has(where(s)), `${v} deal ${n}: after ${i} hints, Hint led back to a table it had been at`);
+      seen.add(where(s));
+      const h = await hintFor(s, { auto });
+      assert.ok(h.move, `${v} deal ${n}: after ${i} hints, Hint said ${JSON.stringify(h)}`);
+      const next = h.move.stock ? game.stock(s) : game.move(s, h.move.from, h.move.n, h.move.to);
+      assert.ok(next, `${v} deal ${n}: Hint's move ${JSON.stringify(h.move)} isn't allowed`);
+      s = settle(next);
+    }
+    assert.ok(game.won(s), `${v} deal ${n} not won after ${cap} hints`);
+  } finally {
+    game.search = search;
+  }
+  return searches;
+}
+
+test('following Hint from a dealt deal wins, and Hint never goes round in circles', async () => {
+  // Each of these Klondike deals once had Hint taking a card up to its foundation and straight back down, or moving
+  // a card from one column to another and back, or saying there was no way to win.
+  await followHint('k1', 338766);
+  await followHint('k1', 438268);
+  await followHint('k1', 2051);
+  await followHint('k3', 2003);
+  await followHint('k3', 2018);
+  await followHint('k3', 2003, { auto: false });
+  await followHint('fc', 617);
+  await followHint('s1', 3);
+});
+
+test('while you do what Hint says, it keeps to the way it found instead of searching again', async () => {
+  for (const [v, n, auto] of [['k1', 2011, true], ['k3', 2096, true], ['k3', 2018, false], ['fc', 1003, false], ['s2', 1001, true]]) {
+    assert.equal(await followHint(v, n, { auto }), 1, `${v} deal ${n}`);
+  }
+});
+

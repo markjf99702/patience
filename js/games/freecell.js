@@ -166,6 +166,8 @@ export const freecell = {
     return null;
   },
 
+  upAlready: (s, m) => (m.k === 'tf' || m.k === 'cf') && s.found.some(f => f.includes(m.c)),
+
   // No move of any kind is left.
   outOfMoves(s) {
     const { state, autos } = freecellRules.start(freecell.position(s));
