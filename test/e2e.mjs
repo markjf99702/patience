@@ -311,6 +311,21 @@ await page.selectOption('#stats-for', 'fc');
 assert.match(await page.textContent('#stats'), /Won\s*1/);
 await page.click('#sheet-menu .close');
 
+// The deal's name and the clock at the top read clearly on the felt, at least 4.5:1, in both palettes.
+for (const colorScheme of ['light', 'dark']) {
+  await page.emulateMedia({ colorScheme });
+  const ratio = await page.evaluate(() => {
+    const felt = getComputedStyle(document.documentElement).getPropertyValue('--felt').trim();
+    const bg = [1, 3, 5].map(i => parseInt(felt.slice(i, i + 2), 16));
+    const [r, g, b, a = 1] = getComputedStyle(document.getElementById('status')).color.match(/[\d.]+/g).map(Number);
+    const fg = [r, g, b].map((v, i) => v * a + bg[i] * (1 - a));
+    const lum = c => c.map(v => (v /= 255) <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4).reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
+    return (lum(fg) + 0.05) / (lum(bg) + 0.05);
+  });
+  assert.ok(ratio >= 4.5, `the header text is ${ratio.toFixed(2)}:1 on the ${colorScheme} felt`);
+}
+await page.emulateMedia({ colorScheme: 'light' });
+
 // Fits a phone: nothing scrolls sideways.
 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'the page scrolls sideways on a phone');
 
