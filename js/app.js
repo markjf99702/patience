@@ -10,19 +10,23 @@ const KEY = 'patience.v1';
 const $ = id => document.getElementById(id);
 const DEFAULTS = { variant: 'k1', winnable: true, auto: true, clock: true, four: false, left: false };
 const blank = () => ({ played: 0, won: 0, streak: 0, best: 0, fastest: 0 });
+const isObj = x => !!x && typeof x === 'object' && !Array.isArray(x);
 
 const saved = read();
 // The first version only played Klondike, and kept the draw count where the way of playing now goes.
 if (saved.settings && !saved.settings.variant && saved.settings.draw) saved.settings.variant = 'k' + saved.settings.draw;
 if (saved.stats?.[1] || saved.stats?.[3]) { saved.stats.k1 ??= saved.stats[1]; saved.stats.k3 ??= saved.stats[3]; }
-if (saved.next?.[1] || saved.next?.[3]) saved.next = { k1: saved.next[1], k3: saved.next[3] };
 const upgrade = s => (s && !s.v && s.draw ? { ...s, v: 'k' + s.draw } : s);
-if (saved.game) { saved.game.state = upgrade(saved.game.state); saved.game.history = (saved.game.history || []).map(upgrade); }
+if (saved.game) { saved.game.state = upgrade(saved.game.state); saved.game.history = (Array.isArray(saved.game.history) ? saved.game.history : []).filter(isObj).map(upgrade); }
 
 const settings = { ...DEFAULTS, ...saved.settings };
 delete settings.draw;
-if (!VARIANTS[settings.variant]) settings.variant = 'k1';
-const stats = Object.fromEntries(Object.keys(VARIANTS).map(v => [v, { ...blank(), ...saved.stats?.[v] }]));
+if (!Object.hasOwn(VARIANTS, settings.variant)) settings.variant = 'k1';
+const record = r => Object.fromEntries(Object.entries(blank()).map(([k, zero]) => [k, Number.isFinite(r?.[k]) ? r[k] : zero]));
+const stats = Object.fromEntries(Object.keys(VARIANTS).map(v => [v, record(saved.stats?.[v])]));
+// The deal kept ready for each way of playing, by draw count in the first version.
+const kept = { k1: saved.next?.[1], k3: saved.next?.[3], ...saved.next };
+const ready = Object.fromEntries(Object.keys(VARIANTS).filter(v => Number.isInteger(kept[v]) && kept[v] > 0).map(v => [v, kept[v]]));
 
 let game = null;      // where the cards are now
 let history = [];     // where they were before each move, for Undo
@@ -53,7 +57,7 @@ const table = new Table($('table'), {
   move: (pile, n, to) => { if (!act(G().move(game, pile, n, to))) table.render(game); },
   touched: () => hideToast(),
 });
-const dealer = new Dealer(saved.next || {}, () => write());
+const dealer = new Dealer(ready, () => write());
 
 // ---- playing ----
 
@@ -290,8 +294,13 @@ function showStats(v) {
 
 // ---- saving ----
 
+// What was saved, leaving out any part that isn't the shape this page writes (it never should be).
 function read() {
-  try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; }
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(KEY)); } catch { /* none, or not readable */ }
+  if (!isObj(s)) return {};
+  for (const k of ['settings', 'stats', 'next', 'game']) if (!isObj(s[k])) delete s[k];
+  return s;
 }
 
 function write() {
@@ -415,18 +424,32 @@ if ('serviceWorker' in navigator && !('single' in document.documentElement.datas
 // ---- starting up: carry on with the saved game, or deal a new one ----
 
 apply();
-const resume = saved.game?.state;
-if (resume && VARIANTS[resume.v] && !gameOf(resume).won(resume)) {
-  game = resume;
-  history = saved.game.history || [];
-  elapsed = saved.game.elapsed || 0;
-  counted = !!saved.game.counted;
-  table.render(game, { still: true });
-  showInfo();
-  after();
+if (!resume(saved.game)) newGame(settings.variant);
+
+// Carry on with a saved game, if there's one that can be played. A saved game that can't (it never should be)
+// is dropped, and a new one dealt, keeping the settings and the record.
+function resume(g) {
+  const s = g?.state;
+  try {
+    if (!isObj(s) || !VARIANTS[s.v] || gameOf(s).won(s)) return false;
+    game = s;
+    history = g.history;
+    elapsed = Number.isFinite(g.elapsed) ? g.elapsed : 0;
+    counted = !!g.counted;
+    table.render(game, { still: true });
+    showInfo();
+    after();
+  } catch {
+    cancelChain();
+    game = null;
+    history = [];
+    elapsed = 0;
+    counted = false;
+    table.state = null; // so the table doesn't try to draw it again
+    return false;
+  }
   if (settings.winnable) setTimeout(() => dealer.prepare(game.v), 4000);
-} else {
-  newGame(settings.variant);
+  return true;
 }
 
 // For the tests and the screenshot tool.

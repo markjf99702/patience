@@ -464,6 +464,37 @@ assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems w
   await c3.close();
 }
 
+// Saved values the page never writes, as from a damaged store, don't stop it starting: it deals a game,
+// and keeps the settings and the record when only the game is damaged.
+{
+  const c4 = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  const p4 = await c4.newPage();
+  const errors = [];
+  p4.on('pageerror', e => errors.push(e.message));
+  await p4.addInitScript(() => {
+    const v = sessionStorage.getItem('seed');
+    if (v !== null) { localStorage.setItem('patience.v1', v); sessionStorage.removeItem('seed'); }
+  });
+  await p4.goto(base);
+  for (const value of [
+    '{"stats":"xx"}',
+    '{"game":{"state":null,"history":"x"}}',
+    '{"game":{"state":{"v":"k1","deal":5}}}',
+    '{"next":"abc"}',
+    '{"settings":{"four":true},"stats":{"fc":{"played":3,"won":2,"streak":1,"best":2,"fastest":90000}},"game":{"state":{"v":"fc","deal":5},"history":[null]}}',
+  ]) {
+    await p4.evaluate(v => sessionStorage.setItem('seed', v), value);
+    await p4.reload();
+    await p4.waitForFunction(() => window.patience?.state, null, { timeout: 20000 });
+    assert.match(await p4.textContent('#status'), /· Deal \d[\d,]*$/, value);
+    assert.equal(await p4.locator('.card').count(), 52, value);
+  }
+  assert.equal(await p4.evaluate(() => document.documentElement.hasAttribute('data-four')), true, 'settings kept');
+  assert.equal(await p4.evaluate(() => window.patience.stats.fc.played), 3, 'record kept');
+  assert.deepEqual(errors, [], 'errors starting from a damaged save');
+  await c4.close();
+}
+
 await browser.close();
 server.close();
 console.log('all good');
