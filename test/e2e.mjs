@@ -325,6 +325,33 @@ assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems w
   await old.close();
 }
 
+// Choosing another game before the last one has landed: only the last choice is dealt, and nothing breaks.
+{
+  const c3 = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  const p3 = await c3.newPage();
+  const errors = [];
+  p3.on('pageerror', e => errors.push(e.message));
+  const ready = () => p3.waitForFunction(() => window.patience?.state && !window.patience.busy, null, { timeout: 15000 });
+  await p3.goto(base);
+  await ready();
+  // Deal 2 starts with an ace that goes up by itself; the first deal's timer mustn't try to send it up again.
+  await p3.evaluate(() => { window.patience.newGame('k1', 1); setTimeout(() => window.patience.newGame('k1', 2), 50); });
+  await p3.waitForTimeout(3000);
+  await ready();
+  const two = await p3.evaluate(() => window.patience.state);
+  assert.equal(two.deal, 2);
+  assert.ok(two.found.some(f => f.length), 'the ace went up');
+  // Klondike chosen while four-suit Spider is still coming: Klondike stays, and so does its name at the top.
+  await p3.evaluate(() => { window.patience.newGame('s4'); window.patience.newGame('k1', 5); });
+  await p3.waitForTimeout(2500);
+  await ready();
+  const five = await p3.evaluate(() => ({ s: window.patience.state, v: window.patience.settings.variant }));
+  assert.deepEqual([five.s.v, five.s.deal, five.v], ['k1', 5, 'k1']);
+  assert.match(await p3.textContent('#status'), /Klondike, draw one · Deal 5/);
+  assert.deepEqual(errors, [], 'errors while switching games');
+  await c3.close();
+}
+
 await browser.close();
 server.close();
 console.log('all good');

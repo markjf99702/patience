@@ -30,6 +30,9 @@ let elapsed = 0;      // time spent on this game, not counting time away
 let since = 0;        // when the clock last started, or 0 while it's stopped
 let counted = false;  // whether this game has been counted as played (it is from the first move)
 let chain = 0;        // the timer for the next card going up by itself
+let dealing = 0;      // counts the deals asked for, so only the latest one is dealt
+let slow = 0;         // the timer that says a deal is still being shuffled
+let landed = 0;       // the timer that frees the table once a deal has landed
 let thinking = false; // the Hint button is searching
 let stopBounce = null;
 
@@ -76,6 +79,7 @@ function set(next) {
 
 // After any move: finished? Ready to finish itself? Any cards to send up?
 function after() {
+  cancelChain(); // only one thing comes next
   const g = G();
   if (g.won(game)) { chain = setTimeout(victory, 700); return; }
   if (g.finishable(game)) { finish(); return; }
@@ -84,7 +88,8 @@ function after() {
     if (step) {
       chain = setTimeout(() => {
         chain = 0;
-        const next = g.move(game, step.from, step.n, step.to);
+        const next = G() === g && g.move(game, step.from, step.n, step.to);
+        if (!next) return; // another game, or the card has gone
         next.moves = game.moves; // these aren't the player's moves
         set(next);
       }, 140);
@@ -126,15 +131,19 @@ function undo() {
 }
 
 async function newGame(v, number) {
+  const ticket = ++dealing;
   closeSheets();
   hideToast();
   cancelChain();
+  clearTimeout(landed);
+  clearTimeout(slow);
   if (game && counted && !G().won(game)) stats[game.v].streak = 0; // leaving a game part way counts as a loss
   settings.variant = v;
   table.locked = true;
   const g = VARIANTS[v].game;
-  const slow = setTimeout(() => { $('status').textContent = 'Shuffling for a deal that can be won…'; }, 250);
+  slow = setTimeout(() => { $('status').textContent = 'Shuffling for a deal that can be won…'; }, 250);
   const n = number ?? (settings.winnable ? await dealer.take(v) : g.randomDeal());
+  if (ticket !== dealing) return; // another game was chosen while this one was being shuffled
   clearTimeout(slow);
   start(g.deal(n, v));
 }
@@ -142,13 +151,16 @@ async function newGame(v, number) {
 function restart() {
   closeSheets();
   if (!game || !game.moves) return;
-  cancelChain();
+  dealing++; // a deal still being shuffled isn't wanted now
+  clearTimeout(slow);
   hideToast();
   table.locked = true;
   start(G().deal(game.deal, game.v), true);
 }
 
 function start(state, again) {
+  cancelChain();
+  clearTimeout(landed);
   game = state;
   history = [];
   elapsed = 0;
@@ -157,7 +169,7 @@ function start(state, again) {
   table.render(game, { deal: true });
   showInfo();
   write();
-  setTimeout(() => { table.locked = false; after(); }, table.dealDuration + 150);
+  landed = setTimeout(() => { table.locked = false; after(); }, table.dealDuration + 150);
 }
 
 async function hint() {
@@ -394,7 +406,7 @@ if (resume && VARIANTS[resume.v] && !gameOf(resume).won(resume)) {
 window.patience = {
   get state() { return game; },
   get busy() { return table.locked || !!chain; },
-  load(state, ms = 0) { cancelChain(); game = state; history = []; elapsed = ms; since = 0; table.locked = false; table.render(game, { still: true }); showInfo(); after(); },
+  load(state, ms = 0) { cancelChain(); clearTimeout(landed); game = state; history = []; elapsed = ms; since = 0; table.locked = false; table.render(game, { still: true }); showInfo(); after(); },
   newGame,
   settings,
   stats,
