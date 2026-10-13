@@ -460,6 +460,17 @@ assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems w
   await p3.waitForTimeout(600);
   assert.equal(await p3.evaluate(() => document.getElementById('b-hint').classList.contains('busy')), false, 'Hint is ready');
   assert.deepEqual(await p3.evaluate(() => [window.patience.stats.fc, window.patience.stats.k3]), [fcWin, kWin], 'each win counts once');
+  // Start this deal again while another game is still being shuffled: the game started again is the one remembered.
+  await p3.evaluate(() => window.patience.newGame('k1', 5));
+  await p3.waitForTimeout(2000);
+  await ready();
+  await p3.click('.spot[data-pile="stock"]', { force: true });
+  await ready();
+  await p3.evaluate(() => { window.patience.newGame('s2'); document.getElementById('b-restart').click(); });
+  await p3.waitForTimeout(2500);
+  await ready();
+  const again = await p3.evaluate(() => [window.patience.state.v, window.patience.state.deal, window.patience.state.moves, window.patience.settings.variant]);
+  assert.deepEqual(again, ['k1', 5, 0, 'k1'], 'Klondike deal 5 started again, and remembered');
   assert.deepEqual(errors, [], 'errors while switching games or after winning');
   await c3.close();
 }

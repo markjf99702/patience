@@ -157,6 +157,7 @@ function restart() {
   closeSheets();
   if (!game || !game.moves) return;
   dealing++; // a deal still being shuffled isn't wanted now
+  settings.variant = game.v; // so this is the way of playing to remember, not the one given up on
   clearTimeout(slow);
   hideToast();
   table.locked = true;
