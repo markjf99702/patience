@@ -48,6 +48,7 @@ node dev/solver-check.mjs 200 3   # solves 200 Klondike deals drawing three, and
 node dev/freecell-check.mjs 100   # the same for FreeCell, checking every move by its own rules
 node dev/spider-check.mjs s2 30   # the same for Spider with two suits (s1, s2 or s4)
 node dev/spider-deals.mjs 120     # rewrites the list of four-suit Spider deals checked in advance
+node dev/hint-check.mjs k3 50     # plays 50 deals doing just what Hint says, and lists any it doesn't win
 ```
 
 To put it online with GitHub Pages: **Settings → Pages → Build and deployment → Deploy from a branch**, then pick `main` and `/ (root)`.
@@ -67,4 +68,4 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `fonts/`: Fraunces and Figtree (SIL Open Font License), served from here so nothing loads from elsewhere.
 - `sw.js`: keeps a copy for playing offline.
 - `test/`: the rules and the solvers in Node, and every game played through the real page.
-- `dev/`: tools used while building it: the solver checks, quick screenshots, and a helper that plays a deal part way.
+- `dev/`: tools used while building it: the solver and Hint checks, quick screenshots, and a helper that plays a deal part way.
