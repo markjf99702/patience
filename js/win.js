@@ -74,7 +74,7 @@ function drawCard(c, w, h, colours, dpr) {
   suit(x, s, w * 0.69, w * 0.07, w * 0.24);
   if (r > 10) {
     x.beginPath();
-    x.roundRect(w * 0.13, h * 0.34, w * 0.74, h * 0.59, radius * 0.6);
+    x.roundRect(w * 0.13, h * 0.38, w * 0.74, h * 0.55, radius * 0.6);
     x.globalAlpha = 0.09;
     x.fill();
     x.globalAlpha = 1;
@@ -84,8 +84,8 @@ function drawCard(c, w, h, colours, dpr) {
     x.textAlign = 'center';
     x.textBaseline = 'middle';
     x.font = `italic 560 ${w * 0.44}px Fraunces, Georgia, serif`;
-    x.fillText(RANK_LABELS[r], w / 2, h * 0.58);
-    suit(x, s, w / 2 - w * 0.09, h * 0.72, w * 0.18);
+    x.fillText(RANK_LABELS[r], w / 2, h * 0.6);
+    suit(x, s, w / 2 - w * 0.09, h * 0.74, w * 0.18);
   } else {
     const size = w * (r === 1 ? 0.62 : 0.5);
     suit(x, s, w / 2 - size / 2, h * 0.6 - size / 2, size);

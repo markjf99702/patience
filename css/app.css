@@ -303,7 +303,7 @@ button { font: inherit; color: inherit; }
   position: absolute;
   left: 13%;
   right: 13%;
-  top: 34%;
+  top: 38%; /* below where the next card in a column starts (36%), so a covered card's frame doesn't peek out */
   bottom: 7%;
   border-radius: calc(var(--r) * 0.6);
   box-shadow: inset 0 0 0 max(1px, calc(var(--cw) * 0.025)) currentColor;

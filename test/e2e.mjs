@@ -231,6 +231,14 @@ assert.equal(await page.locator('.card.down').count(), 0, 'all face up');
 await page.evaluate(() => window.patience.newGame('fc', 617));
 await page.waitForTimeout(2000);
 await settled();
+// A jack, queen or king with a card on it doesn't show the edge of its frame under that card (617 has six).
+const peeks = await page.evaluate(() => window.patience.state.tab.flatMap(t => t.slice(0, -1).flatMap((c, i) => {
+  if (c % 13 < 10) return [];
+  const frame = document.querySelector(`.card[data-c="${c}"] .court`).getBoundingClientRect();
+  return [document.querySelector(`.card[data-c="${t[i + 1]}"]`).getBoundingClientRect().top - frame.top];
+})));
+assert.equal(peeks.length, 6);
+assert.ok(peeks.every(d => d <= 0), `a frame shows ${Math.max(...peeks).toFixed(1)}px under the next card`);
 // New game opens on the game being played, so Enter deals another of the same.
 await page.keyboard.press('n');
 assert.equal(await page.evaluate(() => document.activeElement.dataset.v), 'fc', 'FreeCell has focus');
