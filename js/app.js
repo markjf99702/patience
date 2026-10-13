@@ -21,7 +21,7 @@ if (saved.game) { saved.game.state = upgrade(saved.game.state); saved.game.histo
 
 const settings = { ...DEFAULTS, ...saved.settings };
 delete settings.draw;
-if (!Object.hasOwn(VARIANTS, settings.variant)) settings.variant = 'k1';
+if (!Object.keys(VARIANTS).includes(settings.variant)) settings.variant = 'k1';
 const record = r => Object.fromEntries(Object.entries(blank()).map(([k, zero]) => [k, Number.isFinite(r?.[k]) ? r[k] : zero]));
 const stats = Object.fromEntries(Object.keys(VARIANTS).map(v => [v, record(saved.stats?.[v])]));
 // The deal kept ready for each way of playing, by draw count in the first version.
