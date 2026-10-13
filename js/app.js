@@ -186,7 +186,7 @@ async function hint() {
   $('b-hint').classList.add('busy');
   let h;
   try {
-    h = await hintFor(game);
+    h = await hintFor(game, { auto: settings.auto });
   } finally {
     thinking = false;
     $('b-hint').classList.remove('busy');

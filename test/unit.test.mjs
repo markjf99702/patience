@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { card, safeUp, stacks, fits, suitOf } from '../js/cards.js';
 import { deal, draw, move, canDrop, bestTarget, autoStep, won, finishable, finishStep, forSolver, fromSolver, foundationFor, foundCounts, outOfMoves, TABLEAU, FOUNDATIONS } from '../js/games/klondike.js';
 import { solve } from '../js/solvers/klondike.js';
+import { hintFor } from '../js/deals.js';
 
 const S = 0, H = 1, C = 2, D = 3;
 const top = a => a[a.length - 1];
@@ -129,8 +130,41 @@ function replay(s, path) {
   return won(s);
 }
 
+// The same with "Send cards up by themselves" on, the way the table plays it: after every move and every tap on the deck,
+// any card that can go up by itself does. A card the line sends up later is skipped once it's up, and a card it wants
+// from the deck is drawn for until it shows, however many cards went up on the way.
+function replayAuto(s, path) {
+  const settle = t => { for (let st = autoStep(t); st && !won(t); st = autoStep(t)) t = move(t, st.from, st.n, st.to); return t; };
+  const isUp = c => s.found.some(f => f.includes(c));
+  s = settle(s);
+  for (const m of path) {
+    if ((m.k === 0 || m.k === 2) && isUp(m.c)) continue;
+    if (m.k === 2 || m.k === 3) {
+      for (let guard = 0; top(s.waste) !== m.c && !isUp(m.c); guard++) {
+        assert.ok(guard < 100, `the ${m.c} never came to the top of the waste`);
+        s = settle(draw(s));
+      }
+      if (isUp(m.c)) { assert.equal(m.k, 2, `the ${m.c} went up by itself, but the line wanted it on a column`); continue; }
+      s = move(s, 'waste', 1, m.k === 2 ? foundationFor(s, m.c) : TABLEAU[m.b]);
+    } else if (m.k === 0) s = move(s, TABLEAU[m.a], 1, foundationFor(s, top(s.tab[m.a].up)));
+    else if (m.k === 1) s = move(s, TABLEAU[m.a], m.n, TABLEAU[m.b]);
+    else { const i = s.found.findIndex(f => f.length && suitOf(f[0]) === m.s); s = move(s, FOUNDATIONS[i], 1, TABLEAU[m.b]); }
+    assert.ok(s, 'illegal move ' + JSON.stringify(m));
+    s = settle(s);
+  }
+  for (let guard = 0; guard < 3000 && !won(s); guard++) {
+    const counts = foundCounts(s);
+    const i = s.tab.findIndex(t => t.up.length && fits(top(t.up), counts));
+    if (i >= 0) s = move(s, TABLEAU[i], 1, foundationFor(s, top(s.tab[i].up)));
+    else if (s.waste.length && fits(top(s.waste), counts)) s = move(s, 'waste', 1, foundationFor(s, top(s.waste)));
+    else s = draw(s);
+    s = settle(s);
+  }
+  return won(s);
+}
+
 for (const drawCount of [1, 3]) {
-  test(`the solver's wins are real wins (draw ${drawCount})`, () => {
+  test(`the solver's wins are real wins, with cards going up by themselves or not (draw ${drawCount})`, () => {
     let wins = 0;
     for (let n = 1; n <= 40; n++) {
       const s = deal(n, drawCount);
@@ -138,10 +172,35 @@ for (const drawCount of [1, 3]) {
       if (r.result !== 'won') continue;
       wins++;
       assert.ok(replay(s, r.path), `deal ${n} did not finish`);
+      assert.ok(replayAuto(s, r.path), `deal ${n} did not finish with cards going up by themselves`);
     }
     assert.ok(wins >= 20, `only ${wins} of 40 deals solved`);
   });
 }
+
+test('drawing three, a deal that cards going up by themselves would make unwinnable is not dealt', () => {
+  // Deal 20: aces and twos that turn up on the waste go up by themselves, which changes which cards later draws turn
+  // over, and no way through is left: a search of every table the page can reach with the setting on finds none.
+  // Left on the waste for a tap, they leave one.
+  const s = deal(20, 3);
+  assert.notEqual(solve(forSolver(s), 100000).result, 'won');
+  assert.equal(solve(forSolver(s, false), 100000).result, 'won');
+});
+
+test('drawing three with cards going up by themselves off, Hint lets a card wait on the waste', async () => {
+  // Deal 37024 after 33 hints with the setting off. The ace of spades on the waste would go up by itself with it on,
+  // and Hint used to send it up as if it would, which leaves no way through. Drawing past it wins.
+  const s = {
+    v: 'k3', deal: 37024, draw: 3, stock: [5, 47, 20, 11, 50], waste: [12, 44, 17, 46, 45, 28, 21, 16, 42, 27, 4, 33, 18, 0], fan: 3,
+    found: [[39, 40], [26], [13, 14], []], moves: 33,
+    tab: [[[], [7, 19, 31, 43, 3]], [[], [38]], [[], [51, 37, 23, 9]], [[49], [10, 22, 34]], [[29], [35]], [[24, 6, 41, 30, 32], [2]], [[8, 25, 1, 15], [36, 48]]]
+      .map(([down, up]) => ({ down, up })),
+  };
+  assert.deepEqual(await hintFor(s, { auto: false }), { move: { stock: true } });
+  const r = solve(forSolver(s, false), 300000);
+  assert.equal(r.result, 'won');
+  assert.ok(replay(s, r.path), 'and that way through really wins');
+});
 
 test('a hint for a card deeper in the stock says to draw', () => {
   const s = draw(deal(3, 1));

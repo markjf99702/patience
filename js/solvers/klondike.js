@@ -7,10 +7,15 @@
 //   talon    the stock and waste as one line, in the order the cards come off the stock
 //   pos      how many of those have been drawn: the waste's top card is talon[pos - 1]
 //   draw     1 or 3, with as many passes through the stock as you like
+//   auto     whether cards go up by themselves (the setting), which matters drawing three; true unless it's false
 //
 // It searches depth first, most promising move first, and never looks at the same position twice.
 // Drawing is never a move of its own: every card the stock can reach is offered directly,
 // so the search doesn't go round in circles turning cards over.
+//
+// Drawing three, a card that goes up by itself from the waste changes which cards later draws turn over.
+// So with cards going up by themselves, the stock can't be drawn past one that would, and it can only go up;
+// without, a card on the waste waits for a tap like any other.
 //
 // Moves are objects with k (the kind) and:
 //   k 0: column a to the foundations        k 1: n cards from column a to column b
@@ -29,6 +34,7 @@ export class Search {
     this.talon = p.talon.slice();
     this.pos = p.pos;
     this.draw = p.draw;
+    this.auto = p.auto !== false;
     this.seen = new Set();
     this.nodes = 0;
     this.stack = [];
@@ -117,13 +123,14 @@ export class Search {
           this.apply(m); out.push(m); again = true;
         }
       }
-      // Drawing one at a time, any card in the stock is as good as on top.
+      // Drawing one at a time, any card in the stock is as good as on top. Drawing three, only the one on the waste
+      // goes, and only when cards go up by themselves; otherwise it's a move like any other.
       const t = this.talon;
       if (this.draw === 1) {
         for (let j = 0; j < t.length; j++) {
           if (safeUp(t[j], this.found)) { const m = { k: 2, j }; this.apply(m); out.push(m); again = true; j--; }
         }
-      } else if (this.pos > 0 && safeUp(t[this.pos - 1], this.found)) {
+      } else if (this.pos > 0 && this.upOnItsOwn(t[this.pos - 1])) {
         const m = { k: 2, j: this.pos - 1 };
         this.apply(m); out.push(m); again = true;
       }
@@ -174,8 +181,14 @@ export class Search {
       if (seen[p]) break;
       seen[p] = 1;
       out.push(p);
+      if (this.upOnItsOwn(this.talon[p - 1])) break; // drawing stops there: it goes up and the rest shift
     }
     return out;
+  }
+
+  // Drawing three with cards going up by themselves: a card that would go up as soon as it shows on the waste.
+  upOnItsOwn(c) {
+    return this.draw === 3 && this.auto && safeUp(c, this.found);
   }
 
   // Every move worth trying from here, best first.
@@ -230,6 +243,7 @@ export class Search {
     reach.forEach((p, n) => {
       const j = p - 1, c = talon[j], now = p === this.pos;
       if (fits(c, found)) add(now ? 70 : 50 - n, { k: 2, j });
+      if (this.upOnItsOwn(c)) return; // it can't stay on the waste to go anywhere else
       for (let b = 0; b < 7; b++) {
         const tb = tab[b];
         if (tb.length ? stacks(c, top(tb)) : rankOf(c) === 13 && b === firstEmpty) add(now ? 65 : 45 - n, { k: 3, j, b });

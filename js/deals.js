@@ -67,14 +67,14 @@ export class Dealer {
   }
 }
 
-// What to suggest from here. Resolves with one of:
+// What to suggest from here, with cards going up by themselves or not (the setting). Resolves with one of:
 //   { move: { from, n, to } }   play this
 //   { move: { stock: true } }   tap the stock
 //   { lost: true }              the search looked everywhere and there's no way through
 //   { none: true }              nothing left to do at all
-export async function hintFor(state) {
+export async function hintFor(state, { auto = true } = {}) {
   const game = gameOf(state);
-  let search = await think(game.search(state), game.budget.hint);
+  let search = await think(game.search(state, { auto }), game.budget.hint);
   // A search that leaves out moves which seldom help can't say there's no way through; look again with every move.
   if (search.result === 'lost' && game.searchAll) search = await think(game.searchAll(state), game.budget.all);
   if (search.result === 'won') {

@@ -181,7 +181,9 @@ export function finishStep(s) {
 // The same position the way the solver sees it.
 // Its talon is the stock and waste as one line in the order the cards come off the stock;
 // `pos` cards of it have been drawn, so the waste's top card is talon[pos - 1].
-export function forSolver(s) {
+// `auto` says whether cards go up by themselves. A way through with it on works with it off too (send those cards
+// up by hand), so it's on unless Hint is asked with the setting off.
+export function forSolver(s, auto = true) {
   return {
     draw: s.draw,
     tab: s.tab.map(t => [...t.down, ...t.up]),
@@ -189,6 +191,7 @@ export function forSolver(s) {
     found: foundCounts(s),
     talon: [...s.waste, ...s.stock.slice().reverse()],
     pos: s.waste.length,
+    auto,
   };
 }
 
@@ -275,7 +278,7 @@ export const klondike = {
   finishable,
   finishStep,
   easyHint,
-  search: s => new Search(forSolver(s)),
+  search: (s, { auto = true } = {}) => new Search(forSolver(s, auto)),
   fromSolver,
   outOfMoves,
 
