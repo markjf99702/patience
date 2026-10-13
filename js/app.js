@@ -348,7 +348,7 @@ function openSheet(id) {
   closeSheets();
   opener = document.activeElement;
   $(id).hidden = false;
-  $(id).querySelector('.current, .close, button')?.focus({ preventScroll: true });
+  ($(id).querySelector('.current') || $(id).querySelector('.close, button'))?.focus({ preventScroll: true });
 }
 function closeSheets() {
   const open = document.querySelectorAll('.sheet:not([hidden])');

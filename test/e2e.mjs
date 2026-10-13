@@ -224,6 +224,10 @@ assert.equal(await page.locator('.card.down').count(), 0, 'all face up');
 await page.evaluate(() => window.patience.newGame('fc', 617));
 await page.waitForTimeout(2000);
 await settled();
+// New game opens on the game being played, so Enter deals another of the same.
+await page.keyboard.press('n');
+assert.equal(await page.evaluate(() => document.activeElement.dataset.v), 'fc', 'FreeCell has focus');
+await page.keyboard.press('Escape');
 // In deal 617 the 4 of hearts on top of the fourth column has nowhere to go but a free cell.
 s = await state();
 const four = s.tab[3][s.tab[3].length - 1];
