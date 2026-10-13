@@ -380,10 +380,18 @@ document.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
   else if (e.ctrlKey || e.metaKey) return;
+  else if (k === ' ' && keyFocus && e.target.closest?.('button, a, summary')) return; // Space presses it
   else if (k === ' ' || k === 'd') { e.preventDefault(); table.on.stock(); }
   else if (k === 'h') hint();
   else if (k === 'n') openNew();
 });
+
+// Whether the keyboard brought focus to where it is (Tab, or Escape closing a sheet). A button there takes Space;
+// a button that kept focus after a click or tap leaves Space to the deck.
+let byKey = false, keyFocus = false;
+document.addEventListener('pointerdown', () => { byKey = false; }, true);
+document.addEventListener('keydown', () => { byKey = true; }, true);
+document.addEventListener('focusin', () => { keyFocus = byKey; });
 
 // ---- offline ----
 

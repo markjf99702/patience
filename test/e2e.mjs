@@ -63,6 +63,21 @@ s = await state();
 assert.equal(s.waste.length, 0);
 assert.equal(s.stock.length, 24);
 
+// Space presses a button reached by keyboard, and otherwise uses the deck, even after a button was clicked.
+await page.click('#b-menu');
+await page.keyboard.press('Escape');
+await page.keyboard.press(' ');
+assert.equal(await page.isHidden('#sheet-menu'), false, 'Space pressed the Menu button');
+assert.equal((await state()).stock.length, 24, 'and left the deck alone');
+await page.keyboard.press('Escape');
+await page.click('#b-hint');
+await page.waitForSelector('.hint', { timeout: 10000 });
+await page.keyboard.press(' ');
+await step();
+assert.equal((await state()).stock.length, 23, 'Space used the deck');
+await page.click('#b-undo');
+await step();
+
 // Find a card that can move somewhere, drawing until there is one.
 async function findMove() {
   for (let i = 0; i < 40; i++) {
