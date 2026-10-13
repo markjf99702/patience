@@ -71,7 +71,9 @@ export class Dealer {
 // While the player does what Hint says (or comes back to a table on the way), the next move comes from here instead
 // of a new search. That's quicker, and it can't lead back where it came from: a new search from each table sometimes
 // did, a card up to its foundation and straight back down, round and round for good.
-let line = new Map();
+// It's kept only for the setting it was found with: a way found with cards going up by themselves off can count on a
+// card waiting on the waste that, with the setting switched on, goes up by itself instead.
+let line = new Map(), lineAuto = true;
 
 // A table, the same however many moves it took to get there.
 const where = s => JSON.stringify(s, (k, x) => (k === 'moves' || k === 'fan' ? undefined : x));
@@ -113,9 +115,10 @@ function follow(game, s, path, auto) {
 //   { none: true }              nothing left to do at all
 export async function hintFor(state, { auto = true } = {}) {
   const game = gameOf(state);
-  const known = line.get(where(state));
+  const known = auto === lineAuto && line.get(where(state));
   if (known) return { move: known };
   line = new Map();
+  lineAuto = auto;
   let search = await think(game.search(state, { auto }), game.budget.hint);
   // A search that leaves out moves which seldom help can't say there's no way through; look again with every move.
   // If that runs out too, Klondike's answer stands: its first search leaves out so little that a way through it missed

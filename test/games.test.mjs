@@ -247,8 +247,9 @@ test('Hint gets at least as long as a deal was checked for, so its first press o
 
 // Press Hint and do what it says, with the page's own after-move steps in between (cards going up by themselves if
 // `auto`, and finishing by itself), until the game is won. Hint must never lead back to a table it has been at.
+// `switchOnAt`: switch cards going up by themselves on before that press, as the page does (what can go up, goes).
 // Returns how many times Hint searched.
-async function followHint(v, n, { auto = true, cap = 600 } = {}) {
+async function followHint(v, n, { auto = true, cap = 600, switchOnAt = -1 } = {}) {
   const game = VARIANTS[v].game, search = game.search;
   let searches = 0;
   game.search = (...args) => { searches++; return search(...args); };
@@ -258,6 +259,7 @@ async function followHint(v, n, { auto = true, cap = 600 } = {}) {
     const seen = new Set();
     let s = settle(game.deal(n, v));
     for (let i = 0; i < cap && !game.won(s); i++) {
+      if (i === switchOnAt) { auto = true; s = settle(s); }
       while (game.finishable(s)) { const st = game.finishStep(s); s = game.move(s, st.from, st.n, st.to); }
       if (game.won(s)) break;
       assert.ok(!seen.has(where(s)), `${v} deal ${n}: after ${i} hints, Hint led back to a table it had been at`);
@@ -293,5 +295,12 @@ test('while you do what Hint says, it keeps to the way it found instead of searc
   for (const [v, n, auto] of [['k1', 2011, true], ['k3', 2096, true], ['k3', 2018, false], ['fc', 1003, false], ['s2', 1001, true], ['s4', 35, true]]) {
     assert.equal(await followHint(v, n, { auto }), 1, `${v} deal ${n}`);
   }
+});
+
+test('Hint keeps to the way it found only with the setting it found it with', async () => {
+  // Drawing three, deal 7016, following Hint with cards going up by themselves off and switching them on after 22
+  // presses. Kept to after that, the way found with the setting off ended in "no way to win" 27 presses later.
+  // Hint looks again instead, and that way wins.
+  assert.equal(await followHint('k3', 7016, { auto: false, switchOnAt: 22 }), 2);
 });
 
