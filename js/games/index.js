@@ -27,7 +27,8 @@
 //                           there's no way to win (Klondike, Spider)
 //   lostStands              if searchAll runs out too, the first search's "no way to win" stands (Klondike); otherwise
 //                           Hint suggests the move that looked best
-//   fromSolver(s, m)        a solver move as a table move: { from, n, to }, or { stock: true }
+//   fromSolver(s, m)        a solver move as a table move: { from, n, to }, or { stock: true } (Klondike adds c, the card
+//                           it's drawing for; so does its easyHint)
 //   upAlready(s, m)         whether a solver move sending a card up is done already, the card having gone up by itself
 //   outOfMoves(s, { auto }) nothing useful left to do
 //   bounceOrder(s)          the cards in the order they bounce off the table when it's won

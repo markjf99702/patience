@@ -5,6 +5,7 @@ import { Table } from './table.js';
 import { Dealer, hintFor } from './deals.js';
 import { cascade } from './win.js';
 import { suitSprite } from './suits.js';
+import { shortName } from './cards.js';
 
 const KEY = 'patience.v1';
 const $ = id => document.getElementById(id);
@@ -67,6 +68,7 @@ function act(next) {
   if (!next || table.locked || G().won(game)) return false;
   cancelChain();
   table.clearHint();
+  if (noting) hideToast(); // Hint's note on the card it was drawing for goes with the hint
   history.push(game);
   if (!counted) { counted = true; stats[next.v].played++; }
   startClock();
@@ -193,8 +195,11 @@ async function hint() {
     $('b-hint').classList.remove('busy');
   }
   if (game !== at) return; // they moved on while it was thinking
-  if (h.move) table.showHint(h.move);
-  else if (h.lost) toast('Looks like there’s no way to win from here. Undo a few moves to try another way.', [['Undo', undo]]);
+  if (h.move) {
+    table.showHint(h.move);
+    // Drawing for a card further down the deck, only the deck lights up, so the note says which card.
+    if (h.move.c !== undefined) { toast(`Draw for the ${shortName(h.move.c)}.`); noting = true; }
+  } else if (h.lost) toast('Looks like there’s no way to win from here. Undo a few moves to try another way.', [['Undo', undo]]);
   else toast('There are no moves left.', [['New game', openNew]]);
 }
 
@@ -390,8 +395,10 @@ function modal() {
 }
 
 let toastTimer = 0;
+let noting = false; // the message showing is Hint's note on the card it's drawing for
 function toast(text, actions = []) {
   const t = $('toast');
+  noting = false;
   t.textContent = text;
   for (const [name, fn] of actions) {
     const b = document.createElement('button');
@@ -404,7 +411,7 @@ function toast(text, actions = []) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(hideToast, actions.length ? 9000 : 4000);
 }
-function hideToast() { $('toast').hidden = true; clearTimeout(toastTimer); }
+function hideToast() { $('toast').hidden = true; clearTimeout(toastTimer); noting = false; }
 
 document.addEventListener('keydown', e => {
   if (!$('sheet-new').hidden || !$('sheet-menu').hidden) { if (e.key === 'Escape') closeSheets(); return; }

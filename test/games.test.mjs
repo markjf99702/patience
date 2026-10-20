@@ -246,7 +246,8 @@ test('Hint gets at least as long as a deal was checked for, so its first press o
 // ---- Hint ----
 
 // Press Hint and do what it says, with the page's own after-move steps in between (cards going up by themselves if
-// `auto`, and finishing by itself), until the game is won. Hint must never lead back to a table it has been at.
+// `auto`, and finishing by itself), until the game is won. Hint must never lead back to a table it has been at, and in
+// Klondike, every time it says to draw, it names the card it's drawing for, and that's the card that turns up.
 // `switchOnAt`: switch cards going up by themselves on before that press, as the page does (what can go up, goes).
 // Returns how many times Hint searched.
 async function followHint(v, n, { auto = true, cap = 600, switchOnAt = -1 } = {}) {
@@ -257,18 +258,27 @@ async function followHint(v, n, { auto = true, cap = 600, switchOnAt = -1 } = {}
     const settle = s => { for (let st; auto && !game.won(s) && !game.finishable(s) && (st = game.autoStep(s));) s = game.move(s, st.from, st.n, st.to); return s; };
     const where = s => JSON.stringify(s, (k, x) => (k === 'moves' || k === 'fan' ? undefined : x));
     const seen = new Set();
-    let s = settle(game.deal(n, v));
+    let s = settle(game.deal(n, v)), drawingFor = null;
     for (let i = 0; i < cap && !game.won(s); i++) {
-      if (i === switchOnAt) { auto = true; s = settle(s); }
+      if (i === switchOnAt) { auto = true; s = settle(s); drawingFor = null; }
       while (game.finishable(s)) { const st = game.finishStep(s); s = game.move(s, st.from, st.n, st.to); }
       if (game.won(s)) break;
       assert.ok(!seen.has(where(s)), `${v} deal ${n}: after ${i} hints, Hint led back to a table it had been at`);
       seen.add(where(s));
       const h = await hintFor(s, { auto });
       assert.ok(h.move, `${v} deal ${n}: after ${i} hints, Hint said ${JSON.stringify(h)}`);
+      if (v[0] === 'k' && h.move.stock) {
+        assert.ok(h.move.c !== undefined, `${v} deal ${n}: after ${i} hints, Hint drew without saying for which card`);
+        assert.equal(h.move.c, drawingFor ?? h.move.c, `${v} deal ${n}: after ${i} hints, Hint drew for another card before the ${name(drawingFor)} turned up`);
+        drawingFor = h.move.c;
+      } else if (drawingFor !== null) {
+        assert.equal(s.waste.at(-1), drawingFor, `${v} deal ${n}: after ${i} hints, Hint drew for ${name(drawingFor)} but another card turned up`);
+        drawingFor = null;
+      }
       const next = h.move.stock ? game.stock(s) : game.move(s, h.move.from, h.move.n, h.move.to);
       assert.ok(next, `${v} deal ${n}: Hint's move ${JSON.stringify(h.move)} isn't allowed`);
       s = settle(next);
+      if (drawingFor !== null && s.found.some(f => f.includes(drawingFor))) drawingFor = null; // it went up by itself
     }
     assert.ok(game.won(s), `${v} deal ${n} not won after ${cap} hints`);
   } finally {

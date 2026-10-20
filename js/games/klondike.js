@@ -195,7 +195,8 @@ export function forSolver(s, auto = true) {
   };
 }
 
-// Turn a solver move back into one the table understands. A card deeper in the stock comes back as a tap on the stock.
+// Turn a solver move back into one the table understands. A card deeper in the stock comes back as a tap on the stock,
+// with the card it's drawing for (c), so Hint can say which.
 // A card from the stock is known by the card itself when the move says which: further along a line, the solver's
 // count of places in the stock can be off by the cards the table sent up by themselves on the way.
 export function fromSolver(s, m) {
@@ -206,7 +207,7 @@ export function fromSolver(s, m) {
     case 2:
     case 3: {
       const c = m.c ?? [...s.waste, ...s.stock.slice().reverse()][m.j];
-      if (c !== top(s.waste)) return { stock: true };
+      if (c !== top(s.waste)) return { stock: true, c };
       return { from: 'waste', n: 1, to: m.k === 2 ? foundationFor(s, c) : TABLEAU[m.b] };
     }
     case 4: {
@@ -217,14 +218,20 @@ export function fromSolver(s, m) {
   return null;
 }
 
-// With everything face up: put up the lowest card that fits, or draw.
-function easyHint(s) {
+// With everything face up: put up the lowest card that fits, or draw, for the first card that fits when it turns up.
+export function easyHint(s) {
   const counts = foundCounts(s);
   const from = ['waste', ...TABLEAU].find(id => {
     const v = visible(s, id);
     return v.length && fits(top(v), counts);
   });
   if (from) return { from, n: 1, to: foundationFor(s, top(visible(s, from))) };
+  // To the end of the stock, turning the pile back over, and once more round is far enough to look.
+  const taps = s.stock.length + 1 + s.stock.length + s.waste.length;
+  for (let t = draw(s), i = 1; t && i <= taps; t = draw(t), i++) {
+    const c = top(t.waste);
+    if (c !== undefined && fits(c, counts)) return { stock: true, c };
+  }
   return { stock: true };
 }
 

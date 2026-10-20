@@ -13,6 +13,8 @@ export const rankOf = c => (c % 13) + 1;
 export const isRed = c => (suitOf(c) & 1) === 1;
 export const card = (suit, rank) => suit * 13 + rank - 1;
 export const cardName = c => `${RANK_NAMES[rankOf(c)]} of ${SUIT_NAMES[suitOf(c)]}`;
+// The same in a sentence, with the number on the card: the 7 of clubs, the ace of spades.
+export const shortName = c => `${rankOf(c) > 1 && rankOf(c) < 11 ? rankOf(c) : RANK_NAMES[rankOf(c)]} of ${SUIT_NAMES[suitOf(c)]}`;
 
 // Can `c` go on top of `under` in the tableau? One lower, other colour.
 export const stacks = (c, under) => rankOf(under) === rankOf(c) + 1 && isRed(under) !== isRed(c);

@@ -110,7 +110,7 @@ function follow(game, s, path, auto) {
 
 // What to suggest from here, with cards going up by themselves or not (the setting). Resolves with one of:
 //   { move: { from, n, to } }   play this
-//   { move: { stock: true } }   tap the stock
+//   { move: { stock: true } }   tap the stock; in Klondike, with c, the card it's drawing for, when Hint knows it
 //   { lost: true }              the search looked everywhere and there's no way through
 //   { none: true }              nothing left to do at all
 export async function hintFor(state, { auto = true } = {}) {

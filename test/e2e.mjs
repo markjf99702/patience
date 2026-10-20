@@ -591,6 +591,7 @@ assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems w
   assert.deepEqual(await now(), start, 'with no move lit up, Enter leaves the cards alone');
   await p6.keyboard.press('h');
   await lit();
+  assert.equal(await p6.isHidden('#toast'), true, 'a move lit up on the table needs no note');
   await p6.keyboard.press('Enter');
   await ready();
   assert.deepEqual((await now()).tab[2].up.slice(-2), [34, 20], 'H then Enter put the 8 of hearts on the 9 of clubs');
@@ -610,6 +611,22 @@ assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems w
   await p6.keyboard.press('Enter');
   await ready();
   assert.deepEqual((await now()).tab[2].up.slice(-2), [34, 20], 'after Hint was clicked, Enter played its move');
+
+  // Drawing for a card further down the deck, where only the deck lights up, Hint says which card, until the draw.
+  // In deal 11705 the ace of hearts is the top card of the deck, and the ace of spades the 18th.
+  await p6.evaluate(() => window.patience.newGame('k1', 11705));
+  await p6.waitForTimeout(1500);
+  await ready();
+  await p6.keyboard.press('h');
+  await lit();
+  assert.equal(await p6.textContent('#toast'), 'Draw for the ace of hearts.');
+  await p6.keyboard.press('Enter');
+  await ready();
+  assert.equal(await p6.isHidden('#toast'), true, 'the note went with the draw');
+  assert.ok((await now()).found.some(f => f[0] === 13), 'and the ace of hearts went up by itself');
+  await p6.keyboard.press('h');
+  await lit();
+  assert.equal(await p6.textContent('#toast'), 'Draw for the ace of spades.');
   assert.deepEqual(errors, [], 'errors playing from the keyboard');
   await c6.close();
 }

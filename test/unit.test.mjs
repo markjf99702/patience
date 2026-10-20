@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { card, safeUp, stacks, fits, suitOf } from '../js/cards.js';
-import { deal, draw, move, canDrop, bestTarget, autoStep, won, finishable, finishStep, forSolver, fromSolver, foundationFor, foundCounts, outOfMoves, TABLEAU, FOUNDATIONS } from '../js/games/klondike.js';
+import { deal, draw, move, canDrop, bestTarget, autoStep, won, finishable, finishStep, forSolver, fromSolver, easyHint, foundationFor, foundCounts, outOfMoves, TABLEAU, FOUNDATIONS } from '../js/games/klondike.js';
 import { solve, Search } from '../js/solvers/klondike.js';
 import { hintFor } from '../js/deals.js';
 
@@ -189,14 +189,14 @@ test('drawing three, a deal that cards going up by themselves would make unwinna
 
 test('drawing three with cards going up by themselves off, Hint lets a card wait on the waste', async () => {
   // Deal 37024 after 33 hints with the setting off. The ace of spades on the waste would go up by itself with it on,
-  // and Hint used to send it up as if it would, which leaves no way through. Drawing past it wins.
+  // and Hint used to send it up as if it would, which leaves no way through. Drawing past it, for the 8 of hearts, wins.
   const s = {
     v: 'k3', deal: 37024, draw: 3, stock: [5, 47, 20, 11, 50], waste: [12, 44, 17, 46, 45, 28, 21, 16, 42, 27, 4, 33, 18, 0], fan: 3,
     found: [[39, 40], [26], [13, 14], []], moves: 33,
     tab: [[[], [7, 19, 31, 43, 3]], [[], [38]], [[], [51, 37, 23, 9]], [[49], [10, 22, 34]], [[29], [35]], [[24, 6, 41, 30, 32], [2]], [[8, 25, 1, 15], [36, 48]]]
       .map(([down, up]) => ({ down, up })),
   };
-  assert.deepEqual(await hintFor(s, { auto: false }), { move: { stock: true } });
+  assert.deepEqual(await hintFor(s, { auto: false }), { move: { stock: true, c: card(H, 8) } });
   const r = solve(forSolver(s, false), 300000);
   assert.equal(r.result, 'won');
   assert.ok(replay(s, r.path), 'and that way through really wins');
@@ -235,11 +235,23 @@ test('a game whose way through needs part of a run moved or a card taken back do
   assert.ok(g.move, `Hint said ${JSON.stringify(g)}`);
 });
 
-test('a hint for a card deeper in the stock says to draw', () => {
+test('a hint for a card deeper in the stock says to draw, and for which card', () => {
   const s = draw(deal(3, 1));
   const p = forSolver(s);
-  assert.deepEqual(fromSolver(s, { k: 3, j: p.pos, b: 0 }), { stock: true });
+  assert.deepEqual(fromSolver(s, { k: 3, j: p.pos, b: 0 }), { stock: true, c: p.talon[p.pos] });
   assert.equal(fromSolver(s, { k: 2, j: p.pos - 1 }).from, 'waste');
+});
+
+test('with every card face up, Hint draws for the first card that will fit when it turns up', () => {
+  // Clubs are up to the 5 and diamonds to the 9. The 6 of clubs is on top of the stock, the 10 of diamonds at the bottom.
+  const s = empty(1);
+  s.found = [upTo(S, 13), upTo(H, 13), upTo(C, 5), upTo(D, 9)];
+  s.stock = cards('TD 9C 8C JD 6C');
+  s.tab = ['KC', 'QC', 'JC', 'TC', '7C', 'QD', 'KD'].map(c => column('', c));
+  assert.deepEqual(easyHint(s), { stock: true, c: card(C, 6) });
+  // Drawing three, the 6 of clubs turns over under the jack of diamonds and the 8 of clubs, and the 10 of diamonds
+  // is the first that shows.
+  assert.deepEqual(easyHint({ ...s, draw: 3 }), { stock: true, c: card(D, 10) });
 });
 
 test('a deal with no moves from the start is out of moves, and the solver calls it lost', () => {
