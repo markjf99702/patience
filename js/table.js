@@ -324,8 +324,10 @@ export class Table {
   }
 
   // Light up a suggested move: the card to pick up (or the stock), and where it goes.
+  // `shown` keeps the move while it's lit up, so the keyboard can play it.
   showHint(h) {
     this.clearHint();
+    this.shown = h;
     const s = this.state, marks = [];
     if (h.stock) {
       const id = this.m.piles.find(p => this.m.kind[p] === 'stock' || this.m.kind[p] === 'deals');
@@ -346,6 +348,7 @@ export class Table {
     clearTimeout(this.hintTimer);
     if (this.hinted) this.hinted.forEach(el => el.classList.remove('hint'));
     this.hinted = null;
+    this.shown = null;
   }
 
   // Where a card is on screen, for the winning animation.

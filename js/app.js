@@ -198,6 +198,12 @@ async function hint() {
   else toast('There are no moves left.', [['New game', openNew]]);
 }
 
+// Play the move Hint is showing (Enter): a tap on the deck, or those cards to where it says.
+function play(m) {
+  if (m.stock) table.on.stock();
+  else act(G().move(game, m.from, m.n, m.to));
+}
+
 // ---- winning ----
 
 function victory() {
@@ -406,14 +412,15 @@ document.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
   else if (e.ctrlKey || e.metaKey) return;
-  else if (k === ' ' && keyFocus && e.target.closest?.('button, a, summary')) return; // Space presses it
+  else if ((k === ' ' || k === 'enter') && keyFocus && e.target.closest?.('button, a, summary')) return; // the key presses it
   else if (k === ' ' || k === 'd') { e.preventDefault(); table.on.stock(); }
+  else if (k === 'enter' && table.shown) { e.preventDefault(); play(table.shown); }
   else if (k === 'h') hint();
   else if (k === 'n') openNew();
 });
 
-// Whether the keyboard brought focus to where it is (Tab, or Escape closing a sheet). A button there takes Space;
-// a button that kept focus after a click or tap leaves Space to the deck.
+// Whether the keyboard brought focus to where it is (Tab, or Escape closing a sheet). A button there takes Space and
+// Enter; a button that kept focus after a click or tap leaves Space to the deck, and Enter to the move Hint is showing.
 let byKey = false, keyFocus = false;
 document.addEventListener('pointerdown', () => { byKey = false; }, true);
 document.addEventListener('keydown', () => { byKey = true; }, true);

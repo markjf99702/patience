@@ -563,6 +563,57 @@ assert.deepEqual(problems.filter(p => !p.startsWith('failed:')), [], 'problems w
   await c5.close();
 }
 
+// On a keyboard alone, H lights up a move and Enter plays it. A button the keyboard brought focus to still takes
+// Enter itself; a button that kept focus after a click leaves it to the move, as it leaves Space to the deck.
+{
+  const c6 = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'block' });
+  const p6 = await c6.newPage();
+  const errors = [];
+  p6.on('pageerror', e => errors.push(e.message));
+  const ready = () => p6.waitForFunction(() => window.patience?.state && !window.patience.busy, null, { timeout: 15000 });
+  const now = () => p6.evaluate(() => window.patience.state);
+  const lit = () => p6.waitForSelector('.hint', { timeout: 20000 });
+  await p6.goto(base);
+  await ready();
+  // Klondike deal 11705 after 18 cards drawn: Hint's move is the 8 of hearts (20) onto the 9 of clubs (34) in the third column.
+  await p6.evaluate(async () => {
+    const k = await import('./js/games/klondike.js');
+    const settle = s => { for (let st; (st = k.autoStep(s));) s = k.move(s, st.from, st.n, st.to); return s; };
+    let s = settle(k.deal(11705, 1));
+    for (let i = 0; i < 18; i++) s = settle(k.draw(s));
+    window.patience.load(s);
+  });
+  await ready();
+  const start = await now();
+  assert.equal(start.tab[2].up.at(-1), 34);
+  await p6.keyboard.press('Enter');
+  await p6.waitForTimeout(300);
+  assert.deepEqual(await now(), start, 'with no move lit up, Enter leaves the cards alone');
+  await p6.keyboard.press('h');
+  await lit();
+  await p6.keyboard.press('Enter');
+  await ready();
+  assert.deepEqual((await now()).tab[2].up.slice(-2), [34, 20], 'H then Enter put the 8 of hearts on the 9 of clubs');
+  assert.equal(await p6.locator('.hint').count(), 0, 'and the move is no longer lit up');
+  await p6.keyboard.press('z');
+  await ready();
+  await p6.keyboard.press('Tab');
+  assert.equal(await p6.evaluate(() => document.activeElement.id), 'b-new');
+  await p6.keyboard.press('h');
+  await lit();
+  await p6.keyboard.press('Enter');
+  assert.equal(await p6.isHidden('#sheet-new'), false, 'Enter pressed New, which the keyboard had brought focus to');
+  assert.deepEqual((await now()).tab, start.tab, 'and left the cards alone');
+  await p6.keyboard.press('Escape');
+  await p6.click('#b-hint');
+  await lit();
+  await p6.keyboard.press('Enter');
+  await ready();
+  assert.deepEqual((await now()).tab[2].up.slice(-2), [34, 20], 'after Hint was clicked, Enter played its move');
+  assert.deepEqual(errors, [], 'errors playing from the keyboard');
+  await c6.close();
+}
+
 await browser.close();
 server.close();
 console.log('all good');

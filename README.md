@@ -30,7 +30,7 @@
 - **The bouncing cards** when you win, as tradition requires.
 - **Your record** for each of the six ways of playing: games played, won, win rate, streak, best streak and fastest win.
 - **Settings:** four-colour suits (clubs green, diamonds blue), the deck on the left instead of under your right thumb, and hiding the time and moves.
-- **On a keyboard,** Space uses the deck, Z undoes, H gives a hint and N starts a new game.
+- **On a keyboard,** Space uses the deck, Z undoes, H gives a hint, Enter plays it and N starts a new game.
 - No ads, no account and no server. Your game, your record and your settings stay in your browser. It works offline and installs to a phone's home screen.
 
 ## Running it
