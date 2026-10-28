@@ -66,6 +66,6 @@ To put it online with GitHub Pages: **Settings → Pages → Build and deploymen
 - `js/app.js`: the game itself: undo, the clock, the record, settings and saving.
 - `js/cards.js`, `js/suits.js`, `js/rng.js`: the cards, the four suit shapes, the seeded shuffle that turns a deal number into a deal, and Windows' FreeCell shuffle.
 - `fonts/`: Fraunces and Figtree (SIL Open Font License), served from here so nothing loads from elsewhere.
-- `sw.js`: keeps a copy for playing offline.
+- `sw.js`: keeps a copy for playing offline. On a connection that isn't answering, a page opens from that copy after four seconds. `FILES` in it is a fingerprint of the files it keeps: change one and `npm test` says what to set it to, so a release never leaves the copy half old.
 - `test/`: the rules and the solvers in Node, and every game played through the real page.
 - `dev/`: tools used while building it: the solver and Hint checks, quick screenshots, and a helper that plays a deal part way.
